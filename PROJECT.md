@@ -169,16 +169,16 @@ Every output records **which model version produced it**, so any result can be t
 
 | Phase | Goal | Exit criteria | Status | Milestone |
 |---|---|---|---|---|
-| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | In progress | _link once created_ |
-| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Not started | _link once created_ |
-| **2. Domain data** | Domain dataset collected, transcribed, documented | Datasheet written; splits frozen | Not started | _link once created_ |
-| **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | Ablation table; model card draft | Not started | _link once created_ |
-| **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | _link once created_ |
-| **5. NLP** | Intent / sentiment / NER / summary | 3-way comparison table; chosen approach shipped | Not started | _link once created_ |
-| **6. Serving & product** | API, job queue, storage, dashboard, demo | Deployed demo; load/latency numbers | Not started | _link once created_ |
-| **7. Knowledge layer** | Search + RAG + analytics | RAG eval (retrieval + faithfulness) | Not started | _link once created_ |
-| **8. Hardening & publish** | CI gates, monitoring, write-up, releases | Public release (scope per P-04) | Not started | _link once created_ |
-| **9. Stretch** | Real-time voice agent | Latency budget met | Not started | _link once created_ |
+| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | In progress | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
+| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Not started | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
+| **2. Domain data** | Domain dataset collected, transcribed, documented | Datasheet written; splits frozen | Not started | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
+| **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | Ablation table; model card draft | Not started | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
+| **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
+| **5. NLP** | Intent / sentiment / NER / summary | 3-way comparison table; chosen approach shipped | Not started | [M5](https://github.com/marzoukimouaid/tuncall/milestone/6) |
+| **6. Serving & product** | API, job queue, storage, dashboard, demo | Deployed demo; load/latency numbers | Not started | [M6](https://github.com/marzoukimouaid/tuncall/milestone/7) |
+| **7. Knowledge layer** | Search + RAG + analytics | RAG eval (retrieval + faithfulness) | Not started | [M7](https://github.com/marzoukimouaid/tuncall/milestone/8) |
+| **8. Hardening & publish** | CI gates, monitoring, write-up, releases | Public release (scope per P-04) | Not started | [M8](https://github.com/marzoukimouaid/tuncall/milestone/9) |
+| **9. Stretch** | Real-time voice agent | Latency budget met | Not started | [M9](https://github.com/marzoukimouaid/tuncall/milestone/10) |
 
 **Release cut:** no deadline (P-03). Phases are quality gates: a phase is done when its exit criteria are met. Each phase has a GitHub milestone, and its status is updated here when it changes.
 
