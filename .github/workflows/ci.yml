@@ -1,0 +1,40 @@
+# D-83: every check must pass before merging to main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install (fails if uv.lock is out of date)
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run ruff check
+
+      - name: Ruff format check
+        run: uv run ruff format --check
+
+      - name: Pyright
+        run: uv run pyright
+
+      - name: Pytest
+        run: uv run pytest
+
+      # TODO(Phase 1): CPU smoke test (train + eval a few steps on a tiny
+      # audio sample with a tiny model), per D-83 item 4.

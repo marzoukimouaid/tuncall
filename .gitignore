@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets (tokens only in env vars / .env)
+.env
+.env.*
+!.env.example
+
+# Large local files: live on the HF Hub, never in git (B-04)
+data/
+checkpoints/
+outputs/
+mlruns/
+*.wav
+*.flac
+*.mp3
+*.ogg
+*.opus
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
