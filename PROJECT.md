@@ -2,8 +2,8 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.22 — 2026-11-22
-> **Status:** Phase 0 done; **Phase 1 (benchmarks first) in progress**. Any technology choice not logged in §9 is still OPEN until decided together.
+> **Doc version:** v0.23 — 2026-11-22
+> **Status:** Phases 0–1 done; **Phase 2 (domain data) next**. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
 
@@ -38,15 +38,16 @@ The project has three goals:
 
 ---
 
-## 2. Success Criteria (proposed, to confirm — decision P-05)
+## 2. Success Criteria (set 2026-11-22 from the Phase 1 baselines — P-05a)
 
-| Area | Metric | Target (draft) |
+| Area | Metric | Target |
 |---|---|---|
-| ASR | WER / CER on our held-out **support-call test set** | Beat FarukSTT and base Whisper on this set by a meaningful margin (exact number TBD after baselines) |
-| ASR | WER on a **general** Darija set | No large regression vs. the base model (we don't overfit to the domain) |
-| Diarization | DER on test calls | TBD after baseline |
-| NLP | Macro-F1 on intent / sentiment; entity-level F1 on NER | TBD after baseline vs. a prompted large LLM |
-| System | End-to-end latency per minute of audio; cost per hour of audio | TBD |
+| ASR | WER on our held-out **support-call test set** (test-domain, Phase 2) | **≥ 20% lower WER than FarukSTT** (relative), with the paired 95% CI of ΔWER entirely below 0 |
+| ASR | WER / CER on the **general** Darija set (test-general) | **WER ≤ 40%, CER ≤ 17%** (match FarukSTT: 38.8% [36.6, 41.4] / 16.3%; it may have seen 3% of these clips, D-12b) |
+| ASR | Looping utterances on test-general (D-15d) | **≤ 10 of 1013** (base Whisper large-v3-turbo: 61) |
+| Diarization | DER on test calls | TBD in Phase 4, after its baseline |
+| NLP | Macro-F1 on intent / sentiment; entity-level F1 on NER | TBD in Phase 5, after its baseline vs. a prompted large LLM |
+| System | End-to-end latency per minute of audio; cost per hour of audio | TBD in Phase 6 |
 | Reproducibility | Someone else can reproduce headline numbers from the repo | Yes |
 | Publication | Model card(s) + dataset card + write-up | Scope TBD (P-04) |
 
@@ -170,8 +171,8 @@ Every output records **which model version produced it**, so any result can be t
 
 | Phase | Goal | Exit criteria | Status | Milestone |
 |---|---|---|---|---|
-| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | Done (P-05 deferred to end of Phase 1) | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
-| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | In progress (test-general only, D-13) | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
+| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | Done | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
+| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Done (test-general only, D-13; targets P-05a) | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
 | **2. Domain data** | Domain dataset collected, transcribed, documented | Datasheet written; splits frozen | Not started | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
 | **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | Ablation table; model card draft | Not started | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
 | **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
@@ -286,7 +287,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | P-02 | Weekly time budget? | Drives scope; ✅ decided → §9 |
 | P-03 | Target date for v1? | Internship applications typically open Jan–Mar; ✅ decided → §9 |
 | P-04 | Publication ambition? | HF model + dataset cards / technical blog / workshop paper (e.g. Arabic NLP venues) / demo video; ✅ decided → §9 |
-| P-05 | Confirm success metrics and targets (§2)? | ✅ deferred 2026-11-21 → §9 (targets set at end of Phase 1) |
+| P-05 | Confirm success metrics and targets (§2)? | ✅ decided 2026-11-22 → §9 (P-05a) |
 | P-06 | End-state: portfolio only, open-source + consulting, or SaaS product? | Affects licensing, multi-tenancy, auth; ✅ decided → §9 |
 | P-07 | Will anyone else collaborate (friends for recordings/annotation, a professor)? | ✅ decided → §9 |
 
@@ -471,6 +472,7 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-80e | 2026-11-21 | **Tracking client:** `mlflow-skinny` (official client-only MLflow package). `tuncall.tracking.Tracker` queues all writes and sends them from **one background thread** with `MlflowClient.log_batch`; failed batches go to a local JSON-lines buffer and are replayed on the next successful flush; every error is logged, never raised. Artifacts over 50 MB are refused. Each run is tagged with git commit (+`-dirty`), dataset version and machine (auto-detected) | Meets D-80d fully; skinny client avoids the MLflow server/UI dependency tree | Full `mlflow` package; MLflow built-in async logging (no disk buffer, errors can surface at run end) |
 | P-07 | 2026-11-21 | **Solo for now.** Recruiting speakers for role-played calls is decided in Phase 2 | Owner's answer | — |
 | P-05 | 2026-11-21 | **Success targets (§2) are set at the end of Phase 1**, from the measured baseline table. Phase 0 closes without them | Targets before any measurement would be guesses | Numeric targets now |
+| P-05a | 2026-11-22 | **§2 targets from the Phase 1 baselines:** test-domain WER ≥ 20% lower than FarukSTT (relative) with the paired ΔWER 95% CI below 0; test-general WER ≤ 40% and CER ≤ 17% (match FarukSTT); ≤ 10/1013 looping utterances on test-general. Diarization, NLP and system targets are set when their baselines exist (Phases 4–6) | FarukSTT (38.8% WER) is the strongest public model; base turbo (144%) is too easy a bar to mean anything; matching rather than beating on test-general because FarukSTT may have seen 3% of it | 10% or 30% domain margin; beating FarukSTT on test-general; base Whisper as the bar |
 | D-13 | 2026-11-21 | **Phase 1 freezes test-general only** (LinTO test split). test-domain needs our own recordings, so it is frozen in Phase 2 and added as a column to the same baseline table by the same command | test-domain can't exist before Phase 2 | Recording a pilot domain set in Phase 1 |
 | D-14 | 2026-11-21 | **Freezing test-general:** configs pin LinTO's Hub commit (`99796bfd5e8b48febaac60633d1ec97a658fa511`); `configs/data/test-general.yaml` records the sha256 of each test parquet plus a per-utterance digest; eval refuses to run on any mismatch | Exact and provable with no upload from home (N-01) | Mirroring the split to our own HF repo |
 | D-22a | 2026-11-21 | **Phase 1 baselines run on HF Transformers** (torch). D-22 (serving engine) stays open | Loads every candidate as-is, incl. FarukSTT; same library as Phase 3 training, so before/after numbers come from the same code | faster-whisper (needs CTranslate2 conversion; output can differ) |

@@ -2,7 +2,7 @@
 
 Speech and language intelligence for **Tunisian Darija** customer-support calls: audio in, then diarized transcripts, intents, sentiment, entities, summaries, search and analytics out.
 
-**Status:** Phase 1 (zero-shot baselines on a frozen test set). Baseline results are below. Every number links to the script and config that produced it.
+**Status:** Phase 1 done (zero-shot baselines below; targets in [PROJECT.md §2](PROJECT.md#2-success-criteria-set-2026-11-22-from-the-phase-1-baselines--p-05a)). Next: Phase 2, domain data. Every number links to the script and config that produced it.
 
 The project plan, architecture and decision log are in [PROJECT.md](PROJECT.md).
 
