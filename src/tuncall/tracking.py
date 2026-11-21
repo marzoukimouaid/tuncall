@@ -99,7 +99,7 @@ class Tracker:
         client: _Client | None = None,
         flush_seconds: float = 10.0,
     ) -> None:
-        self._client: _Client = client or MlflowClient()
+        self._client = client  # created lazily in the flush thread, where errors are caught
         self._experiment = experiment
         self._run_name = run_name
         self._buffer = Path(buffer_path)
@@ -171,7 +171,7 @@ class Tracker:
         self._flush()
         if self._run_id is not None:
             try:
-                self._client.set_terminated(self._run_id, status=self._status)
+                self._mlflow().set_terminated(self._run_id, status=self._status)
             except Exception:
                 # shortcut: a run that ends offline stays RUNNING on the server; mark it by hand.
                 log.warning("tracker: could not end run %s", self._run_id, exc_info=True)
@@ -204,15 +204,20 @@ class Tracker:
             else:
                 record[kind].append(item)
 
+    def _mlflow(self) -> _Client:
+        if self._client is None:
+            self._client = MlflowClient()  # raises without a usable MLFLOW_TRACKING_URI
+        return self._client
+
     def _ensure_run(self) -> str:
         if self._run_id is None:
-            experiment = self._client.get_experiment_by_name(self._experiment)
+            experiment = self._mlflow().get_experiment_by_name(self._experiment)
             experiment_id = (
                 experiment.experiment_id
                 if experiment is not None
-                else self._client.create_experiment(self._experiment)
+                else self._mlflow().create_experiment(self._experiment)
             )
-            run = self._client.create_run(experiment_id, run_name=self._run_name)
+            run = self._mlflow().create_run(experiment_id, run_name=self._run_name)
             self._run_id = run.info.run_id
         assert self._run_id is not None
         return self._run_id
@@ -222,12 +227,12 @@ class Tracker:
         params = [Param(k, v) for k, v in record["params"].items()]
         tags = [RunTag(k, v) for k, v in record["tags"].items()]
         for i in range(0, len(metrics), _METRICS_PER_CALL):
-            self._client.log_batch(run_id, metrics=metrics[i : i + _METRICS_PER_CALL])
+            self._mlflow().log_batch(run_id, metrics=metrics[i : i + _METRICS_PER_CALL])
         for i in range(0, max(len(params), len(tags)), _ITEMS_PER_CALL):
             chunk = slice(i, i + _ITEMS_PER_CALL)
-            self._client.log_batch(run_id, params=params[chunk], tags=tags[chunk])
+            self._mlflow().log_batch(run_id, params=params[chunk], tags=tags[chunk])
         for path in record["artifacts"]:
-            self._client.log_artifact(run_id, path)
+            self._mlflow().log_artifact(run_id, path)
 
     def _read_buffer(self) -> list[dict[str, Any]]:
         if not self._buffer.exists():

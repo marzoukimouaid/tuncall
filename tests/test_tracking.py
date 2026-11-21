@@ -3,6 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from tuncall.tracking import MAX_ARTIFACT_BYTES, Tracker, flatten
 
 
@@ -129,3 +131,16 @@ def test_flatten() -> None:
         "a.c.d": "x",
         "e": "[1, 2]",
     }
+
+
+def test_bad_tracking_uri_never_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken_client() -> None:
+        raise RuntimeError("unsupported tracking URI")
+
+    monkeypatch.setattr("tuncall.tracking.MlflowClient", broken_client)
+    with Tracker(
+        "test", config={}, dataset="d", buffer_path=tmp_path / "buffer.jsonl", flush_seconds=0.01
+    ) as tracker:
+        tracker.log_metrics({"loss": 0.5}, step=1)
+
+    assert "loss" in (tmp_path / "buffer.jsonl").read_text(encoding="utf-8")
