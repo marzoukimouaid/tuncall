@@ -1,0 +1,9 @@
+# Phase 1 zero-shot benchmark defaults (D-26, D-15a).
+manifest: configs/data/test-general.yaml
+experiment: phase1-baselines
+reference_model: farukstt
+batch_size: 16
+language: ar
+task: transcribe
+num_beams: 5
+max_new_tokens: 440

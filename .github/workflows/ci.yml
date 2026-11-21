@@ -23,7 +23,7 @@ jobs:
           enable-cache: true
 
       - name: Install (fails if uv.lock is out of date)
-        run: uv sync --locked
+        run: uv sync --locked --extra cpu
 
       - name: Ruff lint
         run: uv run ruff check
