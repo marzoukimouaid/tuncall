@@ -2,8 +2,8 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.17 — 2026-11-21
-> **Status:** Phase 0 (repo bootstrap). Vision and architecture are drafted; **all technology choices are OPEN** until decided together and logged in §9.
+> **Doc version:** v0.18 — 2026-11-21
+> **Status:** Phase 0 done; **Phase 1 (benchmarks first) in progress**. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
 
@@ -170,8 +170,8 @@ Every output records **which model version produced it**, so any result can be t
 
 | Phase | Goal | Exit criteria | Status | Milestone |
 |---|---|---|---|---|
-| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | In progress | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
-| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Not started | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
+| **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | Done (P-05 deferred to end of Phase 1) | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
+| **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | In progress (test-general only, D-13) | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
 | **2. Domain data** | Domain dataset collected, transcribed, documented | Datasheet written; splits frozen | Not started | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
 | **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | Ablation table; model card draft | Not started | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
 | **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
@@ -208,13 +208,13 @@ Every output records **which model version produced it**, so any result can be t
 
 | Activity | Where | Notes |
 |---|---|---|
-| Writing code, unit tests, quick debug runs | Laptop | uv `.venv`; pre-commit (tooling TBD, D-84) |
+| Writing code, unit tests, quick debug runs | Laptop | uv `.venv`; pre-commit (D-84d) |
 | Training & evaluation | Laptop (RTX 4070, 8 GB) | Scripts + config files (YAML + Pydantic, D-87); checkpoint & resume built in |
 | Jobs needing > 8 GB GPU memory | Colab / Kaggle | Same scripts and configs, run from a clone of the repo; checkpoint often |
 | Heavy data processing of public datasets + pushing clean versions | Colab | Data-center bandwidth; result pulled to the laptop once |
 | Experiment tracking & small artifacts | DagsHub (hosted MLflow) | Async, batched, buffered logging (D-80d) |
 | Full checkpoints, data cache, base models | Laptop disk | Retention: best + latest per run (S-01) |
-| CI (lint, types, tests, tiny-sample smoke test) | GitHub Actions | Exact checks TBD (D-83, D-84) |
+| CI (lint, types, tests, tiny-sample smoke test) | GitHub Actions | Checks per D-83; smoke test postponed to Phase 3 (D-83a) |
 | Docker image builds | GitHub Actions → registry | Never uploaded from home |
 | Publishing full models | GitHub Actions or Colab | Only the small LoRA adapter leaves home; merge + push happens in the cloud (runner capacity to verify) |
 | Serving stack development (later phases) | Laptop, docker compose | Deployment target TBD (D-86) |
@@ -282,44 +282,44 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 ### P — Project & ways of working
 | ID | Question | Notes |
 |---|---|---|
-| P-01 | Project name / codename? | |
-| P-02 | Weekly time budget? | Drives scope |
-| P-03 | Target date for v1? | Internship applications typically open Jan–Mar |
-| P-04 | Publication ambition? | HF model + dataset cards / technical blog / workshop paper (e.g. Arabic NLP venues) / demo video |
-| P-05 | Confirm success metrics and targets (§2)? | |
-| P-06 | End-state: portfolio only, open-source + consulting, or SaaS product? | Affects licensing, multi-tenancy, auth |
-| P-07 | Will anyone else collaborate (friends for recordings/annotation, a professor)? | |
+| P-01 | Project name / codename? | ✅ decided → §9 |
+| P-02 | Weekly time budget? | Drives scope; ✅ decided → §9 |
+| P-03 | Target date for v1? | Internship applications typically open Jan–Mar; ✅ decided → §9 |
+| P-04 | Publication ambition? | HF model + dataset cards / technical blog / workshop paper (e.g. Arabic NLP venues) / demo video; ✅ decided → §9 |
+| P-05 | Confirm success metrics and targets (§2)? | ✅ deferred 2026-11-21 → §9 (targets set at end of Phase 1) |
+| P-06 | End-state: portfolio only, open-source + consulting, or SaaS product? | Affects licensing, multi-tenancy, auth; ✅ decided → §9 |
+| P-07 | Will anyone else collaborate (friends for recordings/annotation, a professor)? | ✅ decided → §9 |
 
 ### D — Repository & workflow
 | ID | Question | Notes |
 |---|---|---|
-| D-01 | Use git at all? Hosted where? | GitHub / GitLab / none |
-| D-02 | Public from day one or private until v1? | |
-| D-03 | Monorepo or multiple repos? | |
-| D-04 | Branching / commit conventions? | trunk-based vs. GitFlow; Conventional Commits or not |
-| D-05 | Task tracking? | GitHub Projects / Issues / Notion / none |
-| D-06 | Architecture Decision Records (ADRs) alongside this file? | |
+| D-01 | Use git at all? Hosted where? | GitHub / GitLab / none; ✅ decided → §9 |
+| D-02 | Public from day one or private until v1? | ✅ decided → §9 |
+| D-03 | Monorepo or multiple repos? | ✅ decided → §9 |
+| D-04 | Branching / commit conventions? | trunk-based vs. GitFlow; Conventional Commits or not; ✅ decided → §9 |
+| D-05 | Task tracking? | GitHub Projects / Issues / Notion / none; ✅ decided → §9 |
+| D-06 | Architecture Decision Records (ADRs) alongside this file? | ✅ decided → §9 |
 | D-07 | Privacy policy for audio (consent, PII redaction, retention)? | ✅ decided 2026-11-21 → §9 |
-| D-08 | How do we get domain audio? | Record role-played calls with friends / partner with a company / public content (licensing!) / synthetic TTS / mix |
+| D-08 | How do we get domain audio? | Record role-played calls with friends / partner with a company / public content (licensing!) / synthetic TTS / mix; ✅ decided → §9 |
 | D-09 | Annotation tool? | Label Studio / Argilla / custom / spreadsheets |
-| D-10 | **Transcription convention for code-switching** | Arabic script for Darija + Latin for French/English? All Arabic script? Arabizi? Must match or map to public datasets |
+| D-10 | **Transcription convention for code-switching** | Arabic script for Darija + Latin for French/English? All Arabic script? Arabizi? Must match or map to public datasets; ✅ decided → §9 |
 | D-11 | Size targets for domain train / test sets (hours)? | |
 | D-12 | Which public datasets to include? | ✅ decided 2026-11-21 → §9 (LinTO for Phase 1–3; more sources later as ablations) |
 
 ### B — Compute & environment
 | ID | Question | Notes |
 |---|---|---|
-| B-01 | GPU source and monthly budget? | Kaggle/Colab free / Colab Pro / rented (RunPod, Vast, Lambda…) / university GPU / local GPU |
-| B-02 | Local machine specs (OS, RAM, GPU)? | |
-| B-03 | Python environment tooling? | uv / poetry / conda / pip+venv |
-| B-04 | Where do large files live (audio, checkpoints)? | HF Hub / S3-compatible (R2, B2, MinIO) / Drive |
+| B-01 | GPU source and monthly budget? | Kaggle/Colab free / Colab Pro / rented (RunPod, Vast, Lambda…) / university GPU / local GPU; ✅ decided → §9 |
+| B-02 | Local machine specs (OS, RAM, GPU)? | ✅ decided → §9 |
+| B-03 | Python environment tooling? | uv / poetry / conda / pip+venv; ✅ decided → §9 |
+| B-04 | Where do large files live (audio, checkpoints)? | HF Hub / S3-compatible (R2, B2, MinIO) / Drive; ✅ decided → §9 |
 
 ### ASR
 | ID | Question | Notes |
 |---|---|---|
 | D-20 | Base model candidates to benchmark? | ✅ decided 2026-11-21 → §9 |
 | D-21 | Fine-tuning method? | Full fine-tune vs. LoRA/QLoRA. Starting checkpoint ✅ decided (D-21a: Whisper large-v3-turbo); method still open |
-| D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT |
+| D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT. Benchmarks ✅ decided (D-22a: HF Transformers); serving still open |
 | D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split |
 | D-24 | Streaming ASR in v1 or batch only? | |
 | D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | |
@@ -360,21 +360,21 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 ### Evaluation
 | ID | Question | Notes |
 |---|---|---|
-| D-70 | Eval harness: custom or built on a framework? | |
+| D-70 | Eval harness: custom or built on a framework? | ASR metrics ✅ decided (D-70a); rest open |
 | D-71 | Run evals in CI? Which ones block a merge? | |
 | D-72 | LLM-as-judge for summaries/RAG, calibrated against human ratings? | |
-| D-73 | Statistical rigor: confidence intervals / bootstrap on WER deltas? | |
+| D-73 | Statistical rigor: confidence intervals / bootstrap on WER deltas? | ✅ decided → §9 |
 
 ### MLOps & infra
 | ID | Question | Notes |
 |---|---|---|
-| D-80 | Experiment tracking? | W&B / MLflow / none |
+| D-80 | Experiment tracking? | W&B / MLflow / none; ✅ decided → §9 |
 | D-81 | Data & model versioning? | ✅ decided 2026-11-21 → §9 |
 | D-82 | Containerization? | Docker + compose / k8s (kind/k3s) / none |
-| D-83 | CI/CD platform? | GitHub Actions / GitLab CI / none |
-| D-87 | Config system for training? | Plain YAML / Hydra / other |
+| D-83 | CI/CD platform? | GitHub Actions / GitLab CI / none; ✅ decided → §9 |
+| D-87 | Config system for training? | Plain YAML / Hydra / other; ✅ decided → §9 |
 | D-88 | Data versioning beyond HF Hub revisions? | ✅ decided 2026-11-21 → §9 (with D-81) |
-| D-84 | Code quality tooling? | ruff, mypy/pyright, pre-commit, pytest coverage targets |
+| D-84 | Code quality tooling? | ruff, mypy/pyright, pre-commit, pytest coverage targets; ✅ decided → §9 |
 | D-85 | Observability? | Prometheus + Grafana, OpenTelemetry, Langfuse (LLM traces) |
 | D-86 | Deployment target? | VPS (Hetzner etc.) / cloud (AWS/GCP) / HF / local only |
 
@@ -400,7 +400,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 
 Format: `ID | Date | Decision | Reason | Alternatives rejected`
 
-ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md)
+ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md)
 
 | ID | Date | Decision | Reason | Alternatives rejected |
 |---|---|---|---|---|
@@ -468,6 +468,15 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-81, D-88 | 2026-11-21 | **Versioning = HF Hub revisions only.** Each dataset version is a tagged Hub commit (e.g. `v0.1`); every MLflow run records the Hub repo + revision hash; test-set file hashes are committed to git (§5b rule 5). No DVC | One tool, already where data lives (B-04); revision hashes are exact and immutable | DVC with an HF/S3 remote; lakeFS |
 | D-87a | 2026-11-21 | **Config loader details:** YAML parsed with **PyYAML** (`safe_load`); a config may name a parent with `base: <relative path>`, which is **deep-merged** (nested mappings merge key by key, lists and other values are replaced); inheritance cycles are errors; config models subclass `StrictModel` (`extra="forbid"`) | PyYAML was already installed; deep merge lets run configs list only what they change | ruamel.yaml; section-level replace |
 | D-80e | 2026-11-21 | **Tracking client:** `mlflow-skinny` (official client-only MLflow package). `tuncall.tracking.Tracker` queues all writes and sends them from **one background thread** with `MlflowClient.log_batch`; failed batches go to a local JSON-lines buffer and are replayed on the next successful flush; every error is logged, never raised. Artifacts over 50 MB are refused. Each run is tagged with git commit (+`-dirty`), dataset version and machine (auto-detected) | Meets D-80d fully; skinny client avoids the MLflow server/UI dependency tree | Full `mlflow` package; MLflow built-in async logging (no disk buffer, errors can surface at run end) |
+| P-07 | 2026-11-21 | **Solo for now.** Recruiting speakers for role-played calls is decided in Phase 2 | Owner's answer | — |
+| P-05 | 2026-11-21 | **Success targets (§2) are set at the end of Phase 1**, from the measured baseline table. Phase 0 closes without them | Targets before any measurement would be guesses | Numeric targets now |
+| D-13 | 2026-11-21 | **Phase 1 freezes test-general only** (LinTO test split). test-domain needs our own recordings, so it is frozen in Phase 2 and added as a column to the same baseline table by the same command | test-domain can't exist before Phase 2 | Recording a pilot domain set in Phase 1 |
+| D-14 | 2026-11-21 | **Freezing test-general:** configs pin LinTO's Hub commit (`99796bfd5e8b48febaac60633d1ec97a658fa511`); `configs/data/test-general.yaml` records the sha256 of each test parquet plus a per-utterance digest; eval refuses to run on any mismatch | Exact and provable with no upload from home (N-01) | Mirroring the split to our own HF repo |
+| D-22a | 2026-11-21 | **Phase 1 baselines run on HF Transformers** (torch). D-22 (serving engine) stays open | Loads every candidate as-is, incl. FarukSTT; same library as Phase 3 training, so before/after numbers come from the same code | faster-whisper (needs CTranslate2 conversion; output can differ) |
+| D-26 | 2026-11-21 | **Benchmark decoding:** `language="ar"`, `task="transcribe"`, `num_beams=5`, temperature 0 only (no fallback) | Deterministic; matches the Whisper paper's setup; forcing Arabic stops language-ID errors and translation | Greedy decoding |
+| D-70a, D-73 | 2026-11-21 | **ASR metrics:** WER/CER with **jiwer** after our own Arabic normalizer (`tuncall.eval`, D-10 rules: alef/hamza, ta marbuta, alef maqsura, diacritics, tatweel, digits, punctuation, whitespace). **95% bootstrap CIs**, 1000 resamples over utterances; **paired** bootstrap for model-vs-model deltas. Raw (unnormalized) WER is reported for reference | Small dependency, rules under our control and tested; CIs are required by D-12 (test-general is ~1.3 h) | HF `evaluate` + pyarabic/camel-tools |
+| D-83a | 2026-11-21 | **CI smoke test postponed to Phase 3** (amends D-83 item 4). All real runs are on the laptop; the benchmark script has `--limit N` / `--models` for a quick local pre-flight | Low value with no training code; keeps CI fast | Eval-only smoke test in Phase 1; dropping it |
+| D-15 | 2026-11-21 | **Phase 1 defaults:** model revisions pinned by Hub commit sha in configs; FarukSTT downloads root weights only (never `last-checkpoint/`); per-model predictions and reports go to MLflow via `Tracker`; the only results in git are the README table, rewritten by the benchmark script between `<!-- baselines:start/end -->` markers. New runtime deps: `torch`, `transformers`, `huggingface_hub`, `pyarrow`, `soundfile`, `jiwer` (no `datasets`: we read the exact files we hash) | Reproducible to the byte; git stays code + configs | `results/` folder in git; `datasets` library |
 
 **Implications of D-12:**
 - test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).

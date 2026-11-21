@@ -29,7 +29,7 @@ uv run pytest tests/test_import.py::test_package_imports   # a single test
 uv run pre-commit run --all-files
 ```
 
-CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A CPU smoke test (tiny train + eval) is planned for Phase 1 (D-83).
+CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A CPU smoke test (tiny train + eval) is postponed to Phase 3 (D-83a); until then the benchmark script's `--limit N` is the local pre-flight.
 
 Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`) and blocks files over 500 KB.
 
