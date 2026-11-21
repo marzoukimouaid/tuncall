@@ -2,7 +2,7 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.16 — 2026-11-20
+> **Doc version:** v0.17 — 2026-11-21
 > **Status:** Phase 0 (repo bootstrap). Vision and architecture are drafted; **all technology choices are OPEN** until decided together and logged in §9.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
@@ -24,6 +24,7 @@ The project has three goals:
 ### 1.1 Why this project, and where the bar is
 
 - Generic Whisper fine-tuning on Darija **already exists**. The best public model, FarukSTT (fine-tuned from Whisper large-v3), reports about 32% WER on its own validation set; base Whisper large-v3 is above 50%. Linagora/LinTO has released CC BY 4.0 Tunisian audio and text datasets, and TunSwitch, IWSLT Tunisian and others are also available.
+- FarukSTT is used **only as a baseline to beat**. Our model is trained by us from a general-purpose base model (Whisper large-v3-turbo, D-21a), not continued from FarukSTT.
 - So **the novelty can't be "I fine-tuned Whisper."** It has to come from:
   - **Domain adaptation** (customer-support speech) with a public, reproducible benchmark showing we beat existing models *on that domain*.
   - A **full system** around the model: diarization, NLP, retrieval, analytics.
@@ -102,7 +103,7 @@ Rule: **every claim in the README must come with a number and the eval script th
 
 **C2 — ASR**
 - First, **benchmark** candidate base models on our test sets with no training (D-20).
-- Then fine-tune the chosen model on domain data (method D-21), with ablations: data mix, augmentation (noise, telephone-band 8 kHz simulation, speed), LoRA rank, etc.
+- Then fine-tune **Whisper large-v3-turbo** (D-21a) on domain data (method D-21). FarukSTT is a baseline to beat, never a starting checkpoint. Ablations: data mix, augmentation (noise, telephone-band 8 kHz simulation, speed), LoRA rank, etc.
 - Metrics: WER, CER, and a **code-switch-aware breakdown** (errors on Arabic vs. French vs. English tokens).
 - Export an optimized inference build (D-22).
 
@@ -276,7 +277,7 @@ Never in git: `data/`, `checkpoints/`, `outputs/`, `mlruns/`, audio files, model
 
 ## 8. Open Questions Backlog
 
-Grouped by area. Each one becomes a Decision Log entry once answered. **Nothing below is decided.** "Notes" are options or considerations, not choices.
+Grouped by area. Each one becomes a Decision Log entry once answered. **Only rows marked ✅ are decided** (see §9 for the decision); everything else is open. "Notes" are options or considerations, not choices.
 
 ### P — Project & ways of working
 | ID | Question | Notes |
@@ -298,12 +299,12 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Nothing 
 | D-04 | Branching / commit conventions? | trunk-based vs. GitFlow; Conventional Commits or not |
 | D-05 | Task tracking? | GitHub Projects / Issues / Notion / none |
 | D-06 | Architecture Decision Records (ADRs) alongside this file? | |
-| D-07 | Privacy policy for audio (consent, PII redaction, retention)? | |
+| D-07 | Privacy policy for audio (consent, PII redaction, retention)? | ✅ decided 2026-11-21 → §9 |
 | D-08 | How do we get domain audio? | Record role-played calls with friends / partner with a company / public content (licensing!) / synthetic TTS / mix |
 | D-09 | Annotation tool? | Label Studio / Argilla / custom / spreadsheets |
 | D-10 | **Transcription convention for code-switching** | Arabic script for Darija + Latin for French/English? All Arabic script? Arabizi? Must match or map to public datasets |
 | D-11 | Size targets for domain train / test sets (hours)? | |
-| D-12 | Which public datasets to include? | LinTO (+ augmented), TunSwitch, IWSLT Tunisian, FARUK cleaned, tunis-ai text corpora; check each license |
+| D-12 | Which public datasets to include? | ✅ decided 2026-11-21 → §9 (LinTO for Phase 1–3; more sources later as ablations) |
 
 ### B — Compute & environment
 | ID | Question | Notes |
@@ -316,8 +317,8 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Nothing 
 ### ASR
 | ID | Question | Notes |
 |---|---|---|
-| D-20 | Base model candidates to benchmark? | Whisper large-v3 / large-v3-turbo / medium / small; FarukSTT; wav2vec2-XLS-R / w2v-BERT 2.0; MMS |
-| D-21 | Fine-tuning method? | Full fine-tune vs. LoRA/QLoRA; continue from FarukSTT vs. from base Whisper |
+| D-20 | Base model candidates to benchmark? | ✅ decided 2026-11-21 → §9 |
+| D-21 | Fine-tuning method? | Full fine-tune vs. LoRA/QLoRA. Starting checkpoint ✅ decided (D-21a: Whisper large-v3-turbo); method still open |
 | D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT |
 | D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split |
 | D-24 | Streaming ASR in v1 or batch only? | |
@@ -368,11 +369,11 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Nothing 
 | ID | Question | Notes |
 |---|---|---|
 | D-80 | Experiment tracking? | W&B / MLflow / none |
-| D-81 | Data & model versioning? | DVC / HF Hub revisions / lakeFS / none |
+| D-81 | Data & model versioning? | ✅ decided 2026-11-21 → §9 |
 | D-82 | Containerization? | Docker + compose / k8s (kind/k3s) / none |
 | D-83 | CI/CD platform? | GitHub Actions / GitLab CI / none |
 | D-87 | Config system for training? | Plain YAML / Hydra / other |
-| D-88 | Data versioning beyond HF Hub revisions? | DVC (remote TBD) / HF revisions only |
+| D-88 | Data versioning beyond HF Hub revisions? | ✅ decided 2026-11-21 → §9 (with D-81) |
 | D-84 | Code quality tooling? | ruff, mypy/pyright, pre-commit, pytest coverage targets |
 | D-85 | Observability? | Prometheus + Grafana, OpenTelemetry, Langfuse (LLM traces) |
 | D-86 | Deployment target? | VPS (Hetzner etc.) / cloud (AWS/GCP) / HF / local only |
@@ -458,10 +459,20 @@ Format: `ID | Date | Decision | Reason | Alternatives rejected`
 | D-03a | 2026-11-20 | **Code layout:** one package `src/tuncall/` with subpackages per component, one `pyproject.toml` / `uv.lock` (§6). Split into a uv workspace later only if serving needs it | Least setup; cross-component changes stay simple | uv workspace with one package per component |
 | B-03a | 2026-11-20 | **Python 3.12** (`.python-version`, `requires-python = ">=3.12,<3.13"`) | Matches Ubuntu 24.04 and Colab; supported by the ML/audio stack | 3.11 |
 | D-84e | 2026-11-20 | Large-file blocker threshold: **500 KB** (`check-added-large-files --maxkb=500`). Anything bigger goes to the HF Hub (B-04) | pre-commit default; nothing large belongs in git | — |
+| D-07 | 2026-11-21 | **Privacy:** signed consent per speaker covering recording, training and publication of the audio under the dataset license. Call scripts use **only fictional personal data** (names, phone numbers, IDs), so no real PII is spoken. Speakers can withdraw until the dataset is made public. Only optional coarse metadata is kept (gender, age bracket, region). Audio stays private on the HF Hub until checked (B-04b) | Keeps the dataset publishable (P-04) with no PII to redact; a voice can't be anonymized, so consent must cover publication explicitly | Audio never published (models only) |
+| D-20 | 2026-11-21 | **Zero-shot baselines (Phase 1):** Whisper large-v3, large-v3-turbo, medium, small, and FarukSTT | Shows size vs. accuracy and the starting point for fine-tuning; FarukSTT is the strongest public model to beat | CTC models (w2v-BERT 2.0, MMS, wav2vec2) |
+| D-21a | 2026-11-21 | **Fine-tuning starts from Whisper large-v3-turbo** (OpenAI, MIT, 809M). The model is the owner's own: **FarukSTT is a baseline only, never a starting checkpoint**. Full fine-tune vs. LoRA stays open (D-21) | Demonstrates our own training rather than reusing someone's fine-tune; multilingual decoder (Arabic + French + English) suits code-switching; LoRA fits the 8 GB laptop GPU (B-01c); fast serving via faster-whisper | Whisper large-v3 (8 GB too tight, most runs would move to Colab); w2v-BERT 2.0 + CTC; two tracks (turbo + CTC); continuing from FarukSTT |
+| D-12 | 2026-11-21 | **Public data for Phase 1–3: LinTO audio** (`linagora/linto-dataset-audio-ar-tn`, CC BY 4.0, ~81 h labelled, already all Arabic script). **test-general = LinTO test split** (~1.3 h), frozen after overlap/dedupe checks. Training sources can be added later as Phase 3 data-mix ablations (each needs a license check, D-10 conversion and dedupe against the test sets); **test sets never change**. Text corpora deferred to Phase 5 | Clean license, matches D-10, fully reproducible, keeps the FarukSTT comparison clean | FARUKxAUTO/tunisian-asr-cleaned (no license stated; FarukSTT's own training data); IWSLT Tunisian / LDC2022E02 (LDC agreement, not redistributable, not reproducible by readers); TunSwitch separately (already included in LinTO) |
+| D-81, D-88 | 2026-11-21 | **Versioning = HF Hub revisions only.** Each dataset version is a tagged Hub commit (e.g. `v0.1`); every MLflow run records the Hub repo + revision hash; test-set file hashes are committed to git (§5b rule 5). No DVC | One tool, already where data lives (B-04); revision hashes are exact and immutable | DVC with an HF/S3 remote; lakeFS |
+
+**Implications of D-12:**
+- test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).
+- FarukSTT's training data has unknown sources and may include LinTO test audio. Check for overlap where possible and state the risk next to any test-general comparison. The domain test set (our own recordings) is the uncontaminated headline comparison.
+- Model cards must credit LinTO (CC BY 4.0) and the sources it bundles, as their licenses require.
 
 **Implications of D-87:** ablation sweeps need a small script (e.g. generate configs or loop over overrides), and some duplication between configs is accepted. Keep shared defaults in a base file to limit it.
 
-**Implications of B-04c:** a public model trained partly on a not-yet-public dataset can't be fully reproduced until the dataset is released, so the model card must say so. Model cards must credit every training source as its license requires (e.g. CC BY 4.0 attribution for LinTO), and the license of any starting checkpoint (e.g. FarukSTT) must allow redistribution. Check both before the first public model.
+**Implications of B-04c:** a public model trained partly on a not-yet-public dataset can't be fully reproduced until the dataset is released, so the model card must say so. Model cards must credit every training source as its license requires (e.g. CC BY 4.0 attribution for LinTO), and the license of the starting checkpoint must allow redistribution (Whisper large-v3-turbo is MIT, D-21a). Check both before the first public model.
 
 **Effect of D-80v2:** no MinIO and no local MLflow/Postgres containers for tracking. Docker is still used for the serving stack in later phases. Infrastructure skills are shown there (API, Postgres, job queue, monitoring, CI/CD).
 
@@ -489,6 +500,9 @@ Format: `ID | Date | Decision | Reason | Alternatives rejected`
 - LinTO audio dataset: https://huggingface.co/datasets/linagora/linto-dataset-audio-ar-tn
 - Tunisian ASR / TunSwitch: https://huggingface.co/SalahZa/Tunisian_Automatic_Speech_Recognition
 - tunis-ai collection (Tunisian text datasets): https://huggingface.co/tunis-ai
+- TunSwitch on Zenodo (CC BY 4.0): https://zenodo.org/records/8370566
+- IWSLT 2022 dialect task (Tunisian–English, LDC2022E02): https://iwslt.org/2022/dialect
+- Whisper large-v3-turbo: https://huggingface.co/openai/whisper-large-v3-turbo
 
 ## 11. Glossary
 
