@@ -2,7 +2,7 @@
 manifest: configs/data/test-general.yaml
 experiment: phase1-baselines
 reference_model: farukstt
-batch_size: 16
+batch_size: 4  # D-15c: 16 overflows a T4 with large models at beam 5
 language: ar
 task: transcribe
 num_beams: 5
