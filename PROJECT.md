@@ -2,7 +2,7 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.18 — 2026-11-21
+> **Doc version:** v0.19 — 2026-11-21
 > **Status:** Phase 0 done; **Phase 1 (benchmarks first) in progress**. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
@@ -478,6 +478,7 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-83a | 2026-11-21 | **CI smoke test postponed to Phase 3** (amends D-83 item 4). All real runs are on the laptop; the benchmark script has `--limit N` / `--models` for a quick local pre-flight | Low value with no training code; keeps CI fast | Eval-only smoke test in Phase 1; dropping it |
 | D-15 | 2026-11-21 | **Phase 1 defaults:** model revisions pinned by Hub commit sha in configs; FarukSTT downloads root weights only (never `last-checkpoint/`); per-model predictions and reports go to MLflow via `Tracker`; the only results in git are the README table, rewritten by the benchmark script between `<!-- baselines:start/end -->` markers. New runtime deps: `torch`, `transformers`, `huggingface_hub`, `pyarrow`, `soundfile`, `jiwer` (no `datasets`: we read the exact files we hash) | Reproducible to the byte; git stays code + configs | `results/` folder in git; `datasets` library |
 | D-14a | 2026-11-21 | **test-general utterances:** one utterance = one LinTO timestamped segment (recordings run up to ~3 min; segments ≤ 15 s), reference = the segment's cleaned `transcript` field; stereo averaged to mono; resampled to 16 kHz with **soxr** (source audio is 16 / 44.1 / 48 kHz). Result: 1013 utterances, 1.239 h | Whisper takes ≤ 30 s; `transcript` is LinTO's cleaned text; soxr is small, deterministic, high quality | Whole recordings; `transcript_raw`; torchaudio; scipy |
+| B-01d | 2026-11-21 | **Phase 1 baselines (#19) run on Colab** (T4), under B-01c(b): ~15 GB of model downloads need data-center bandwidth. Same script and config as on the laptop; runs are tagged `machine=colab`; the README table comes back as a small file and is committed through a normal PR. Determinism checks (rerun → identical WER) are done on the same machine. The laptop installs torch/transformers later for Phase 3 | Saves ~2 h of home download and ~15 GB of disk for one-off runs | Laptop run (2 h download, disk 21 GB → ~3 GB free) |
 
 **Implications of D-12:**
 - test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).
