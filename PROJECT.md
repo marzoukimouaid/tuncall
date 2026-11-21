@@ -400,6 +400,8 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 
 Format: `ID | Date | Decision | Reason | Alternatives rejected`
 
+ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md)
+
 | ID | Date | Decision | Reason | Alternatives rejected |
 |---|---|---|---|---|
 | — | 2026-11-20 | Work on the speech project (Darija) now; improved document AI later | Resume already covers document AI; speech adds a new, distinctive area | Doc-AI flagship first |
