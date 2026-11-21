@@ -11,6 +11,7 @@ dependencies = [
     "pydantic>=2.14.4",
     "pyyaml>=6.0.3",
     "mlflow-skinny>=3.18.0",
+    "jiwer>=4.0.0",
 ]
 
 [build-system]
