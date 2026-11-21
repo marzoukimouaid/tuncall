@@ -80,6 +80,12 @@ def _chars(rows: list[Row]) -> list[tuple[int, int]]:
     return [(r["char_errors"], r["char_len"]) for r in rows]
 
 
+def is_loop(hyp_norm: str) -> bool:
+    """Decoder stuck repeating (D-15d): over 20 words, under 30% of them distinct."""
+    words = hyp_norm.split()
+    return len(words) > 20 and len(set(words)) / len(words) < 0.3
+
+
 def summarize(rows: list[Row]) -> dict[str, float]:
     w, c = _words(rows), _chars(rows)
     (wlo, whi), (clo, chi) = bootstrap_ci(w), bootstrap_ci(c)
@@ -92,6 +98,7 @@ def summarize(rows: list[Row]) -> dict[str, float]:
         "cer_ci_low": clo,
         "cer_ci_high": chi,
         "raw_wer": error_rate(raw),
+        "looping": sum(is_loop(r["hyp_norm"]) for r in rows),
     }
 
 
@@ -125,8 +132,9 @@ def render_table(results: dict[str, list[Row]], reference: str) -> str:
     """Markdown table sorted by WER; ΔWER is paired against ``reference`` (D-15a)."""
     ref_rows = results.get(reference)
     lines = [
-        f"| Model | WER % [95% CI] | CER % [95% CI] | ΔWER vs {reference} [95% CI] | Raw WER % |",
-        "|---|---|---|---|---|",
+        "| Model | WER % [95% CI] | CER % [95% CI] "
+        f"| ΔWER vs {reference} [95% CI] | Raw WER % | Looping |",
+        "|---|---|---|---|---|---|",
     ]
     summaries = {m: summarize(rows) for m, rows in results.items()}
     for model, s in sorted(summaries.items(), key=lambda kv: kv[1]["wer"]):
@@ -139,7 +147,7 @@ def render_table(results: dict[str, list[Row]], reference: str) -> str:
         lines.append(
             f"| {model} | {_ci(s['wer'], s['wer_ci_low'], s['wer_ci_high'])} "
             f"| {_ci(s['cer'], s['cer_ci_low'], s['cer_ci_high'])} | {delta} "
-            f"| {_pct(s['raw_wer'])} |"
+            f"| {_pct(s['raw_wer'])} | {s['looping']:.0f} |"
         )
     return "\n".join(lines)
 
@@ -149,7 +157,10 @@ def readme_block(table: str, config: Path, n: int) -> str:
         f"{table}\n\n"
         f"{n} utterances. WER/CER after Arabic normalization (D-10), 95% bootstrap CIs over "
         "utterances (1000 resamples), ΔWER is a paired bootstrap (D-73). Raw WER is on "
-        "unnormalized text. Beam 5, Arabic forced, no temperature fallback (D-26).\n"
+        "unnormalized text. Beam 5, Arabic forced, no temperature fallback (D-26). "
+        "Looping = utterances where the decoder got stuck repeating (hypothesis over 20 words, "
+        "under 30% of them distinct; D-15d). They stay in every score: WER above 100% comes "
+        "from the extra words they add.\n"
         f"Reproduce: `uv run python scripts/benchmark_asr.py --config {config}`"
     )
 
