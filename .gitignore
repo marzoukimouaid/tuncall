@@ -16,7 +16,7 @@ htmlcov/
 !.env.example
 
 # Large local files: live on the HF Hub, never in git (B-04)
-data/
+/data/
 checkpoints/
 outputs/
 mlruns/
