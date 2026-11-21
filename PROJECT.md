@@ -2,7 +2,7 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.19 — 2026-11-21
+> **Doc version:** v0.20 — 2026-11-21
 > **Status:** Phase 0 done; **Phase 1 (benchmarks first) in progress**. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
@@ -313,6 +313,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | B-02 | Local machine specs (OS, RAM, GPU)? | ✅ decided → §9 |
 | B-03 | Python environment tooling? | uv / poetry / conda / pip+venv; ✅ decided → §9 |
 | B-04 | Where do large files live (audio, checkpoints)? | HF Hub / S3-compatible (R2, B2, MinIO) / Drive; ✅ decided → §9 |
+| B-05 | How is torch installed (CPU vs CUDA)? | ✅ decided 2026-11-21 → §9 |
 
 ### ASR
 | ID | Question | Notes |
@@ -479,6 +480,11 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-15 | 2026-11-21 | **Phase 1 defaults:** model revisions pinned by Hub commit sha in configs; FarukSTT downloads root weights only (never `last-checkpoint/`); per-model predictions and reports go to MLflow via `Tracker`; the only results in git are the README table, rewritten by the benchmark script between `<!-- baselines:start/end -->` markers. New runtime deps: `torch`, `transformers`, `huggingface_hub`, `pyarrow`, `soundfile`, `jiwer` (no `datasets`: we read the exact files we hash) | Reproducible to the byte; git stays code + configs | `results/` folder in git; `datasets` library |
 | D-14a | 2026-11-21 | **test-general utterances:** one utterance = one LinTO timestamped segment (recordings run up to ~3 min; segments ≤ 15 s), reference = the segment's cleaned `transcript` field; stereo averaged to mono; resampled to 16 kHz with **soxr** (source audio is 16 / 44.1 / 48 kHz). Result: 1013 utterances, 1.239 h | Whisper takes ≤ 30 s; `transcript` is LinTO's cleaned text; soxr is small, deterministic, high quality | Whole recordings; `transcript_raw`; torchaudio; scipy |
 | B-01d | 2026-11-21 | **Phase 1 baselines (#19) run on Colab** (T4), under B-01c(b): ~15 GB of model downloads need data-center bandwidth. Same script and config as on the laptop; runs are tagged `machine=colab`; the README table comes back as a small file and is committed through a normal PR. Determinism checks (rerun → identical WER) are done on the same machine. The laptop installs torch/transformers later for Phase 3 | Saves ~2 h of home download and ~15 GB of disk for one-off runs | Laptop run (2 h download, disk 21 GB → ~3 GB free) |
+| B-05 | 2026-11-21 | **torch packaging:** `torch` only through two conflicting optional extras, using uv's PyTorch-index pattern. `cpu` uses the PyTorch CPU index and is installed by CI and the laptop (~200 MB, so pyright can resolve imports). `gpu` uses the CUDA wheels (`cu126` index) and is used on Colab. `transformers` goes in the main dependencies (small). Install with `uv sync --extra cpu` (laptop/CI) or `uv sync --locked --extra gpu` (Colab) | Laptop disk is tight (B-01d) and CI shouldn't download ~3 GB of CUDA libs per PR | torch in main deps; one CUDA-only optional group |
+| D-15a | 2026-11-21 | **Benchmark layout and defaults:** inference in `src/tuncall/asr/transcribe.py` (reused in Phase 3); orchestration, scoring and the table in `scripts/benchmark_asr.py`. Predictions are one JSONL per model with one line per utterance `{id, ref, hyp, ref_norm, hyp_norm, word_errors, word_len, char_errors, char_len}`, also logged to MLflow. `batch_size: 16` (config), `max_new_tokens: 440`. MLflow experiment `phase1-baselines`, run name = model key. README columns: model, WER [95% CI], CER [95% CI], ΔWER vs FarukSTT [paired 95% CI], raw WER, sorted by WER. Speed/RTF numbers and the per-language error breakdown are left to later phases | Owner accepted the proposed defaults | Everything in the script |
+| D-15b | 2026-11-21 | **Resume:** each model's predictions are written to `<out>/<model>.jsonl` (write `.tmp`, then rename, only once the model has finished). A model whose file exists is skipped unless `--force`. The table is built from the cached files. `--out` (default `outputs/phase1`) can point at Google Drive on Colab. `--limit N` runs write to `<out>/limit-N/` and never touch the README | Colab sessions die; a 1.5–2 h run shouldn't restart from zero | No resume |
+| D-12a | 2026-11-21 | **#18 (LinTO train/test overlap) moves to Phase 3.** It only filters training data, and test-general can't change whatever it finds | Nothing is trained in Phase 1 | Doing it in Phase 1 |
+| D-12b | 2026-11-21 | **FarukSTT contamination is measured in Phase 1.** Each test-general reference is normalized with `normalize_arabic`. It counts as "seen" if it has **≥ 4 words** and appears **exactly** among FarukSTT's normalized training transcripts (`FARUKxAUTO/tunisian-asr-cleaned`, pinned by Hub commit sha). Report the % of eligible utterances seen, how many were eligible, and the total. The script runs on Colab | Turns "may be contaminated" into a number next to FarukSTT's score; the 4-word minimum stops common short replies (ايه, باهي) from counting as matches by chance | Note only; any-length matches |
 
 **Implications of D-12:**
 - test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).
