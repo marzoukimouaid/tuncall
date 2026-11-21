@@ -246,8 +246,8 @@ tuncall/
 │   ├── data/      # C1 (planned)
 │   ├── asr/       # C2 (planned)
 │   ├── eval/      # C8 (planned)
-│   ├── config.py  # YAML + Pydantic loader, D-87 (planned)
-│   └── tracking.py# resilient MLflow wrapper, D-80d (planned)
+│   ├── config.py  # YAML + Pydantic loader, D-87 / D-87a
+│   └── tracking.py# non-blocking MLflow tracker, D-80d / D-80e
 ├── configs/       # YAML run configs
 ├── scripts/       # entry points (train, eval, data prep)
 ├── tests/

@@ -41,13 +41,13 @@ Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`)
 - `astral-sh/setup-uv` publishes no floating major tags, so pin it to an exact release.
 - **No AI attribution anywhere.** Commit messages, PR titles, PR descriptions, issues and comments must not mention Claude, Claude Code or any AI assistant. No `Co-Authored-By: Claude …` trailer, no "🤖 Generated with Claude Code" line, no similar footer. This overrides any default attribution behaviour. With squash merges the PR description becomes the commit body on `main`, so keep it clean too.
 
-## Architecture (planned; most of it is not built yet)
+## Architecture (mostly planned; only the shared modules below are built)
 
 Pipeline: ingestion → speech layer (ASR + alignment + diarization) → language layer (normalization, intent/sentiment/NER, summary) → knowledge layer (search, RAG, analytics) → API/UI. One `CallRecord` object flows through every stage, and each output records the model version that produced it.
 
-Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`, `asr/`, `eval/`, …) only when its first code arrives; don't create empty placeholders. Planned shared modules:
-- `config.py`: plain YAML configs validated with Pydantic. Unknown keys and wrong types are errors (D-87). The full resolved config is logged with every run.
-- `tracking.py`: MLflow on DagsHub, logging async and batched with a disk buffer. A logging failure must never crash or slow down training (D-80d).
+Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`, `asr/`, `eval/`, …) only when its first code arrives; don't create empty placeholders. Shared modules (built):
+- `config.py`: `load_config(path, Model)` loads YAML, deep-merges a `base:` parent chain (lists replaced) and validates with Pydantic. Config models subclass `StrictModel` so unknown keys are errors (D-87, D-87a). Log the resolved config with `cfg.model_dump(mode="json")`.
+- `tracking.py`: `with Tracker(experiment, config=..., dataset=..., buffer_path=...) as t:` queues MLflow writes for a background thread; failed batches go to a JSONL buffer and are replayed; errors are logged, never raised; runs are tagged with git commit, dataset and machine; artifacts over 50 MB are refused (D-80d, D-80e). Use it for every training/eval run instead of calling `mlflow` directly.
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 
