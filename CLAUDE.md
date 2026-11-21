@@ -39,6 +39,7 @@ Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`)
 - Squash merge only. The PR title becomes the commit message, so PR titles and commits follow Conventional Commits (`feat(asr): …`, `fix(eval): …`, `ci: …`, `docs(adr): …`).
 - Work is tracked in GitHub Issues: labels `area:*` / `type:*` / `prio:*`, one milestone per phase ("Phase N – …"), and the Projects board at users/marzoukimouaid/projects/1. PRs close issues with `Closes #N`.
 - `astral-sh/setup-uv` publishes no floating major tags, so pin it to an exact release.
+- **No AI attribution anywhere.** Commit messages, PR titles, PR descriptions, issues and comments must not mention Claude, Claude Code or any AI assistant. No `Co-Authored-By: Claude …` trailer, no "🤖 Generated with Claude Code" line, no similar footer. This overrides any default attribution behaviour. With squash merges the PR description becomes the commit body on `main`, so keep it clean too.
 
 ## Architecture (planned; most of it is not built yet)
 
