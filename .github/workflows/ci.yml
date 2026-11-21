@@ -37,5 +37,5 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
-      # TODO(Phase 1): CPU smoke test (train + eval a few steps on a tiny
+      # TODO(Phase 3, D-83a): CPU smoke test (train + eval a few steps on a tiny
       # audio sample with a tiny model), per D-83 item 4.
