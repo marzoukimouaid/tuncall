@@ -244,7 +244,7 @@ tuncall/
 │   └── pull_request_template.md
 ├── src/tuncall/
 │   ├── data/      # C1 (planned)
-│   ├── asr/       # C2 (planned)
+│   ├── asr/       # C2: Whisper inference (built, D-15a)
 │   ├── eval/      # C8 (planned)
 │   ├── config.py  # YAML + Pydantic loader, D-87 / D-87a
 │   └── tracking.py# non-blocking MLflow tracker, D-80d / D-80e

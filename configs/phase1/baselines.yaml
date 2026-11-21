@@ -1,0 +1,18 @@
+# The five Phase 1 baselines (D-20), pinned by Hub commit sha (D-15).
+base: base.yaml
+models:
+  whisper-large-v3:
+    id: openai/whisper-large-v3
+    revision: 06f233fe06e710322aca913c1bc4249a0d71fce1
+  whisper-large-v3-turbo:
+    id: openai/whisper-large-v3-turbo
+    revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+  whisper-medium:
+    id: openai/whisper-medium
+    revision: abdf7c39ab9d0397620ccaea8974cc764cd0953e
+  whisper-small:
+    id: openai/whisper-small
+    revision: 973afd24965f72e36ca33b3055d56a652f456b4d
+  farukstt:  # root weights only, never last-checkpoint/ (D-15)
+    id: medyas/FarukSTT
+    revision: a0898fa42804fc1ad86bbee147479d3e8a5f2270
