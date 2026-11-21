@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from benchmark_asr import read_jsonl, render_table, score_rows, to_run, write_jsonl
+from benchmark_asr import is_loop, read_jsonl, render_table, score_rows, to_run, write_jsonl
 
 from tuncall.data.testsets import Utterance
 from tuncall.eval.report import replace_block
@@ -34,7 +34,7 @@ def test_render_table_sorts_by_wer_and_pairs_against_reference() -> None:
     }
     lines = render_table(results, "ref").splitlines()
     assert lines[0].startswith("| Model |") and "ΔWER vs ref" in lines[0]
-    assert lines[2] == "| good | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | -50.0 [-50.0, -50.0] | 0.0 |"
+    assert lines[2] == "| good | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | -50.0 [-50.0, -50.0] | 0.0 | 0 |"
     assert lines[3].startswith("| ref | 50.0 [50.0, 50.0] |") and "| — |" in lines[3]
 
 
@@ -60,3 +60,9 @@ def test_resume_skips_cached_models_unless_forced(tmp_path: Path) -> None:
     assert to_run(["a", "b"], tmp_path, force=False) == ["b"]
     assert to_run(["a", "b"], tmp_path, force=True) == ["a", "b"]
     assert read_jsonl(tmp_path / "a.jsonl")[0]["hyp"] == "x"
+
+
+def test_is_loop_flags_runaway_repetition_only() -> None:
+    assert is_loop(" ".join(["نحن"] * 147))
+    assert not is_loop("ايه ايه ايه باهي")  # short repeats are normal speech
+    assert not is_loop(" ".join(f"w{i}" for i in range(40)))  # long but varied
