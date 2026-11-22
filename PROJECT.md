@@ -2,7 +2,7 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.26 — 2026-11-22
+> **Doc version:** v0.27 — 2026-11-22
 > **Status:** Phases 0–1 done; **Phase 2 (domain data) in progress**, plan in D-08v2. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
@@ -330,7 +330,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT. Benchmarks ✅ decided (D-22a: HF Transformers); serving still open |
 | D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split |
 | D-24 | Streaming ASR in v1 or batch only? | |
-| D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | ✅ decided 2026-11-22 → §9 (codec simulation details decided when built) |
+| D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | ✅ decided 2026-11-22 → §9 (codec: D-25a) |
 
 ### NLP
 | ID | Question | Notes |
@@ -518,6 +518,7 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-16c | 2026-11-22 | **Lexicon scope and test-general:** LinTO is not all Arabic script (D-12 assumed it was): 315 of 1,013 test-general references and 4,842 LinTO train clips contain Latin words. test-general's frozen files and digest stay unchanged; `scripts/benchmark_asr.py` transliterates **both reference and hypothesis** with the lexicon before `normalize_arabic` (config key `lexicon`), records the lexicon's sha256 with every score, and re-scores cached predictions so the table always uses the current lexicon. The Phase 1 README numbers are re-scored when the lexicon is final (#37). **Lexicon v1** covers the 2,169 Latin words used ≥ 5 times (82% of 74,277 Latin tokens); spellings drafted from written rules (seed of 60 by hand, the rest by helper agents); **reviewed and approved unchanged by the owner on 2026-11-22**. Extending it to all ~10k words is a later quality upgrade (D-10b) | Keeps the frozen set untouched while applying D-10a to train and test alike; ≥ 5 uses covers most tokens at a reviewable size | Re-freezing test-general with transliterated references; scoring Latin as-is; all ~10k words now |
 | D-16d | 2026-11-22 | **Lexicon v1.1** = v1 + every Latin word still left in the two frozen test sets' references (390 words: 164 from SLURP-TN test, 226 from test-general), drafted with the D-16c rules; both test sets then have 0 Latin tokens. Listed in `outputs/lexicon/review-v1.1.tsv`; **reviewed and approved unchanged by the owner on 2026-11-22**. test-domain is frozen with v1.1 (`configs/data/test-domain.yaml`) | Leftover Latin would count as an error for every model; spelling words is not tuning (the entries apply to training text too) | Freezing with v1 (185 Latin tokens left in test-domain) |
 | D-14c | 2026-11-22 | **test-domain storage (implements D-14b):** the test-general `Manifest` and `load_test_set` gain `layout: clips` (one utterance per parquet row, id = the audio file name, e.g. `16501-9`; reference = `text_column`, here `tun_transcription`) and `lexicon: {path, sha256}`; references are transliterated before the digest is taken, and loading refuses a changed parquet file, lexicon or digest. test-general's manifest is unchanged. `scripts/freeze_test_domain.py` writes `configs/data/test-domain.yaml` reproducibly. Any later lexicon change (e.g. D-10b) needs a re-freeze, logged as a new row | One verification path for both test sets; owner chose it | A separate test-domain loader |
+| D-25a | 2026-11-22 | **Telephone channel (implements D-25):** a landline simulation in `tuncall.data.telephone`: 16 kHz → 8 kHz (soxr), 300–3400 Hz band (FFT), G.711 A-law 8-bit companding (continuous A-law curve), back to 16 kHz at the same length. No added noise and no seed, so it is deterministic. `scripts/benchmark_asr.py` takes `channel: telephone` (`configs/phase1/telephone.yaml`), caching under `<out>/telephone`; the README column comes with D-15e (#37). Owner chose both | A-law is Tunisia's landline standard; numpy + soxr only, same output on every machine; no noise keeps the column a pure channel effect | AMR-NB (needs an ffmpeg build with the encoder, output varies by build); both codecs as two columns; white noise at 20 dB SNR |
 
 **Implications of D-12:**
 - test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).

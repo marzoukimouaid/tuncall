@@ -52,6 +52,7 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 
 - `data/sources/`: one adapter per training source (D-16); `SOURCES[name](split, revision=..., root=None)` yields `Record`s (16 kHz mono float32 audio, raw text). `TrainMix` validates `configs/data/train-mix.yaml`; `scripts/source_stats.py` prints hours per source and exports texts (run on Colab, D-16b).
 - `data/lexicon.py`: `load_lexicon`, `latin_words`, `transliterate` for the D-10a lexicon (`configs/data/lexicon.tsv`); `scripts/latin_words.py` and `scripts/dedupe_report.py` read the text export.
+- `data/telephone.py`: `telephone(audio)` is the deterministic D-25a landline channel (8 kHz, A-law); the benchmark applies it with `channel: telephone`.
 - `asr/transcribe.py`: `load(model_id, revision, device, dtype)` and batched `transcribe(...)` for Whisper models with HF Transformers (D-22a, D-26). Used by `scripts/benchmark_asr.py` (D-15a).
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.

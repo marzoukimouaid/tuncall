@@ -2,7 +2,8 @@
 
 Each model's predictions are cached in ``<out>/<model>.jsonl``; a cached model is skipped
 unless ``--force``. The table is built from the cached files and written into README.md only
-when every configured model is cached and no ``--limit`` is set.
+when every configured model is cached and no ``--limit`` is set. ``channel: telephone``
+scores the same test set through the D-25a landline simulation, cached under ``<out>/telephone``.
 
     uv run python scripts/benchmark_asr.py --config configs/phase1/baselines.yaml
 """
@@ -10,11 +11,13 @@ when every configured model is cached and no ``--limit`` is set.
 import argparse
 import gc
 import json
+from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from tuncall.config import StrictModel, load_config
 from tuncall.data.lexicon import load_lexicon, transliterate
+from tuncall.data.telephone import telephone
 from tuncall.data.testsets import Manifest, Utterance, load_test_set, sha256_file
 from tuncall.eval.metrics import (
     bootstrap_ci,
@@ -46,6 +49,7 @@ class BenchmarkConfig(StrictModel):
     num_beams: int
     max_new_tokens: int
     lexicon: Path | None = None  # D-10a lexicon applied when scoring (D-16c)
+    channel: Literal["clean", "telephone"] = "clean"  # D-25a
     models: dict[str, ModelRef]
 
 
@@ -254,12 +258,16 @@ def main() -> None:
     if unknown := set(selected) - set(cfg.models):
         parser.error(f"unknown models: {sorted(unknown)}")
     out: Path = args.out / f"limit-{args.limit}" if args.limit else args.out
+    if cfg.channel != "clean":
+        out /= cfg.channel  # never reuse clean predictions
     out.mkdir(parents=True, exist_ok=True)
 
     lexicon = scoring_lexicon(cfg)
     if todo := to_run(selected, out, args.force):
         manifest = load_config(ROOT / cfg.manifest, Manifest)
         utterances = load_test_set(manifest)[: args.limit]
+        if cfg.channel == "telephone":
+            utterances = [replace(u, audio=telephone(u.audio)) for u in utterances]
         for key in todo:
             run_model(key, cfg, utterances, manifest, out, lexicon)
 
@@ -267,6 +275,8 @@ def main() -> None:
     results = {m: rescore(read_jsonl(out / f"{m}.jsonl"), lexicon[0]) for m in cached}
     table = render_table(results, cfg.reference_model)
     print(table)
+    if cfg.channel != "clean":  # the telephone column joins the README table in #37 (D-15e)
+        return
     if args.limit or len(results) < len(cfg.models):
         print(f"README not updated: {len(cached)}/{len(cfg.models)} cached, limit={args.limit}")
         return
