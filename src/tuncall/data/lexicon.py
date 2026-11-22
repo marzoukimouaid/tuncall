@@ -37,6 +37,8 @@ def load_lexicon(path: Path) -> dict[str, str]:
         latin, arabic = parts
         if latin_words(latin) != [latin]:
             raise ValueError(f"{where}: key {latin!r} must be one lowercase Latin word")
+        if len(arabic.split()) != 1:
+            raise ValueError(f"{where}: spelling {arabic!r} must be one word (keeps word counts)")
         if LATIN.search(arabic):
             raise ValueError(f"{where}: spelling {arabic!r} still has Latin letters")
         if latin in lexicon:

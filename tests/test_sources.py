@@ -100,11 +100,15 @@ def test_omnilingual_reads_aeb_arab_only_with_speakers(tmp_path: Path) -> None:
             "raw_text": text,
         }
 
-    write(tmp_path, "data/aeb_Arab/train-00000-of-00006.parquet", [row("spk01", "s01", "الكلب")])
+    rows = [
+        row("spk01", "s01", "<hesitation> الكلب  <<noise> يحب <> >"),
+        row("spk01", "s02", "<hesitation> <laugh>"),  # nothing left: skipped
+    ]
+    write(tmp_path, "data/aeb_Arab/train-00000-of-00006.parquet", rows)
     write(tmp_path, "data/ary_Arab/train-00000-of-00001.parquet", [row("spk09", "s01", "no")])
     records = load("omnilingual", "train", tmp_path)
     assert [(r.id, r.speaker, r.text) for r in records] == [
-        ("omnilingual/train/spk01/a001/s01", "spk01", "الكلب")
+        ("omnilingual/train/spk01/a001/s01", "spk01", "الكلب يحب")
     ]
     check_audio(records, [0.5])
 
@@ -142,19 +146,6 @@ def test_linto_cuts_segments_from_every_subset(tmp_path: Path) -> None:
     ]
     assert [r.text for r in records] == ["عسلامة", "لاباس", "باهي"]
     check_audio(records, [1.0, 0.5, 1.0])
-
-
-def test_senior_cuts_segments(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "data/train-00000-of-00005.parquet",
-        [segmented_row("0000001_0000003_1_3", [(0.0, 0.75, "و كانت شوية des cliques")])],
-    )
-    records = load("senior", "train", tmp_path)
-    assert [(r.id, r.text) for r in records] == [
-        ("senior/train/0000001_0000003_1_3/000", "و كانت شوية des cliques")
-    ]
-    check_audio(records, [0.75])
 
 
 @pytest.mark.parametrize("source", sorted(SOURCES))

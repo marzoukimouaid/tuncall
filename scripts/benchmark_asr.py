@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from tuncall.config import StrictModel, load_config
-from tuncall.data.testsets import Manifest, Utterance, load_test_set
+from tuncall.data.lexicon import load_lexicon, transliterate
+from tuncall.data.testsets import Manifest, Utterance, load_test_set, sha256_file
 from tuncall.eval.metrics import (
     bootstrap_ci,
     char_counts,
@@ -44,22 +45,26 @@ class BenchmarkConfig(StrictModel):
     task: str
     num_beams: int
     max_new_tokens: int
+    lexicon: Path | None = None  # D-10a lexicon applied when scoring (D-16c)
     models: dict[str, ModelRef]
 
 
 Row = dict[str, Any]
 
 
-def score_rows(utterances: list[Utterance], hyps: list[str]) -> list[Row]:
+def score_rows(refs: list[tuple[str, str]], hyps: list[str], lexicon: dict[str, str]) -> list[Row]:
+    """Score (id, reference) pairs. Both sides are transliterated with the lexicon (D-10a,
+    D-16c) and normalized (D-10); the frozen reference itself is kept unchanged."""
     rows = []
-    for u, hyp in zip(utterances, hyps, strict=True):
-        ref_norm, hyp_norm = normalize_arabic(u.text), normalize_arabic(hyp)
+    for (uid, ref), hyp in zip(refs, hyps, strict=True):
+        ref_norm = normalize_arabic(transliterate(ref, lexicon))
+        hyp_norm = normalize_arabic(transliterate(hyp, lexicon))
         [(we, wl)] = word_counts([ref_norm], [hyp_norm])
         [(ce, cl)] = char_counts([ref_norm], [hyp_norm])
         rows.append(
             {
-                "id": u.id,
-                "ref": u.text,
+                "id": uid,
+                "ref": ref,
                 "hyp": hyp,
                 "ref_norm": ref_norm,
                 "hyp_norm": hyp_norm,
@@ -152,10 +157,25 @@ def render_table(results: dict[str, list[Row]], reference: str) -> str:
     return "\n".join(lines)
 
 
-def readme_block(table: str, config: Path, n: int) -> str:
+def scoring_lexicon(cfg: BenchmarkConfig) -> tuple[dict[str, str], str]:
+    """The configured lexicon and its sha256 (recorded with every score), or none."""
+    if cfg.lexicon is None:
+        return {}, "none"
+    path = ROOT / cfg.lexicon
+    return load_lexicon(path), sha256_file(path)
+
+
+def rescore(rows: list[Row], lexicon: dict[str, str]) -> list[Row]:
+    """Re-score cached predictions, so the table always uses the current lexicon."""
+    return score_rows([(r["id"], r["ref"]) for r in rows], [r["hyp"] for r in rows], lexicon)
+
+
+def readme_block(table: str, config: Path, n: int, lexicon_id: str) -> str:
     return (
         f"{table}\n\n"
-        f"{n} utterances. WER/CER after Arabic normalization (D-10), 95% bootstrap CIs over "
+        f"{n} utterances. Latin-script words in references and hypotheses are transliterated "
+        f"with the D-10a lexicon (sha256 `{lexicon_id}`) before scoring (D-16c). "
+        f"WER/CER after Arabic normalization (D-10), 95% bootstrap CIs over "
         "utterances (1000 resamples), ΔWER is a paired bootstrap (D-73). Raw WER is on "
         "unnormalized text. Beam 5, Arabic forced, no temperature fallback (D-26). "
         "Looping = utterances where the decoder got stuck repeating (hypothesis over 20 words, "
@@ -166,7 +186,12 @@ def readme_block(table: str, config: Path, n: int) -> str:
 
 
 def run_model(
-    key: str, cfg: BenchmarkConfig, utterances: list[Utterance], manifest: Manifest, out: Path
+    key: str,
+    cfg: BenchmarkConfig,
+    utterances: list[Utterance],
+    manifest: Manifest,
+    out: Path,
+    lexicon: tuple[dict[str, str], str],
 ) -> None:
     import torch  # heavy; only needed when a model actually runs
 
@@ -192,7 +217,7 @@ def run_model(
     if cuda:
         torch.cuda.empty_cache()
 
-    rows = score_rows(utterances, hyps)
+    rows = score_rows([(u.id, u.text) for u in utterances], hyps, lexicon[0])
     path = out / f"{key}.jsonl"
     write_jsonl(path, rows)
     summary = summarize(rows)
@@ -205,6 +230,7 @@ def run_model(
             "model_id": ref.id,
             "model_revision": ref.revision,
             "utterances": len(rows),
+            "lexicon_sha256": lexicon[1],
         },
         dataset=f"{manifest.repo}@{manifest.revision}",
         buffer_path=out / "tracking-buffer.jsonl",
@@ -230,14 +256,15 @@ def main() -> None:
     out: Path = args.out / f"limit-{args.limit}" if args.limit else args.out
     out.mkdir(parents=True, exist_ok=True)
 
+    lexicon = scoring_lexicon(cfg)
     if todo := to_run(selected, out, args.force):
         manifest = load_config(ROOT / cfg.manifest, Manifest)
         utterances = load_test_set(manifest)[: args.limit]
         for key in todo:
-            run_model(key, cfg, utterances, manifest, out)
+            run_model(key, cfg, utterances, manifest, out, lexicon)
 
     cached = [m for m in cfg.models if (out / f"{m}.jsonl").exists()]
-    results = {m: read_jsonl(out / f"{m}.jsonl") for m in cached}
+    results = {m: rescore(read_jsonl(out / f"{m}.jsonl"), lexicon[0]) for m in cached}
     table = render_table(results, cfg.reference_model)
     print(table)
     if args.limit or len(results) < len(cfg.models):
@@ -245,7 +272,7 @@ def main() -> None:
         return
     n = len(next(iter(results.values())))
     config = args.config.resolve().relative_to(ROOT)
-    block = readme_block(table, config, n)
+    block = readme_block(table, config, n, lexicon[1])
     text = replace_block(README.read_text(encoding="utf-8"), "baselines", block)
     README.write_text(text, encoding="utf-8")
     print(f"updated {README}")

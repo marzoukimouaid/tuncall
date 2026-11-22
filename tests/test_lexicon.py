@@ -35,6 +35,7 @@ def test_load_lexicon_reads_tsv(tmp_path: Path) -> None:
         ("mail\tميل\nmail\tميييل\n", "duplicate"),
         ("Mail\tميل\n", "lowercase Latin"),
         ("mail\tmeyl\n", "Latin letters"),
+        ("sms\tاس ام اس\n", "one word"),  # noqa: RUF001
         ("mail ميل\n", "latin<TAB>arabic"),
         ("mail\t\n", "latin<TAB>arabic"),
     ],

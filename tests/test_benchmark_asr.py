@@ -1,18 +1,13 @@
 from pathlib import Path
 
-import numpy as np
 import pytest
 from benchmark_asr import is_loop, read_jsonl, render_table, score_rows, to_run, write_jsonl
 
-from tuncall.data.testsets import Utterance
 from tuncall.eval.report import replace_block
 
-SILENCE = np.zeros(1, dtype=np.float32)
 
-
-def _rows(refs: list[str], hyps: list[str]) -> list[dict]:
-    utts = [Utterance(f"u{i}", SILENCE, r) for i, r in enumerate(refs)]
-    return score_rows(utts, hyps)
+def _rows(refs: list[str], hyps: list[str], lexicon: dict[str, str] | None = None) -> list[dict]:
+    return score_rows([(f"u{i}", r) for i, r in enumerate(refs)], hyps, lexicon or {})
 
 
 def test_empty_hypothesis_scores_as_deletions() -> None:
@@ -24,6 +19,13 @@ def test_empty_hypothesis_scores_as_deletions() -> None:
 def test_score_rows_normalizes_both_sides() -> None:
     [row] = _rows(["مدرسة"], ["مدرسه"])
     assert row["word_errors"] == 0
+
+
+def test_score_rows_transliterates_both_sides_with_the_lexicon() -> None:
+    [row] = _rows(["ابعث Mail توا"], ["ابعث ميل donc"], {"mail": "ميل", "donc": "دونك"})
+    assert row["ref"] == "ابعث Mail توا"  # the frozen reference is kept as is
+    assert (row["ref_norm"], row["hyp_norm"]) == ("ابعث ميل توا", "ابعث ميل دونك")
+    assert row["word_errors"] == 1
 
 
 def test_render_table_sorts_by_wer_and_pairs_against_reference() -> None:

@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterator
 from pydantic import Field, field_validator
 
 from tuncall.config import StrictModel
-from tuncall.data.sources import linto, omnilingual, senior, slurp_tn, tedxtn
+from tuncall.data.sources import linto, omnilingual, slurp_tn, tedxtn
 from tuncall.data.sources.common import Record
 
 SOURCES: dict[str, Callable[..., Iterator[Record]]] = {
@@ -14,7 +14,6 @@ SOURCES: dict[str, Callable[..., Iterator[Record]]] = {
     "slurp_tn": slurp_tn.records,
     "omnilingual": omnilingual.records,
     "tedxtn": tedxtn.records,
-    "senior": senior.records,
 }
 
 # Every split each source publishes. Only train is trained on (D-12c); the others are
@@ -24,7 +23,6 @@ SPLITS: dict[str, tuple[str, ...]] = {
     "slurp_tn": ("train", "validation", "test"),
     "omnilingual": ("train",),
     "tedxtn": ("train", "validation", "test"),
-    "senior": ("train",),
 }
 
 

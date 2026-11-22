@@ -1,5 +1,6 @@
 # Phase 1 zero-shot benchmark defaults (D-26, D-15a).
 manifest: configs/data/test-general.yaml
+lexicon: configs/data/lexicon.tsv  # D-16c: applied to refs and hyps when scoring
 experiment: phase1-baselines
 reference_model: farukstt
 batch_size: 4  # D-15c: 16 overflows a T4 with large models at beam 5
