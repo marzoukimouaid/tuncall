@@ -2,8 +2,8 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.23 — 2026-11-22
-> **Status:** Phases 0–1 done; **Phase 2 (domain data) next**. Any technology choice not logged in §9 is still OPEN until decided together.
+> **Doc version:** v0.24 — 2026-11-22
+> **Status:** Phases 0–1 done; **Phase 2 (domain data) in progress**, plan in D-08v2. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
 
@@ -18,7 +18,7 @@ Build an **end-to-end speech and language intelligence system for Tunisian Darij
 The project has three goals:
 
 1. **Career:** show AI-engineering skill across the full model lifecycle (data → fine-tuning → evaluation → serving → monitoring), not just API calls.
-2. **Contribution:** publish a domain dataset and models that are measurably better than the strongest public Darija baselines on that domain.
+2. **Contribution:** a Tunisian Darija ASR model of our own that is measurably better than the strongest public Darija baselines, with a reproducible benchmark. (We no longer record or publish our own domain dataset, P-09.)
 3. **Commercial:** be something a Tunisian / North African call center, telecom, bank or BPO would pay for, either as a product or as a freelance/consulting engagement.
 
 ### 1.1 Why this project, and where the bar is
@@ -26,7 +26,7 @@ The project has three goals:
 - Generic Whisper fine-tuning on Darija **already exists**. The best public model, FarukSTT (fine-tuned from Whisper large-v3), reports about 32% WER on its own validation set; base Whisper large-v3 is above 50%. Linagora/LinTO has released CC BY 4.0 Tunisian audio and text datasets, and TunSwitch, IWSLT Tunisian and others are also available.
 - FarukSTT is used **only as a baseline to beat**. Our model is trained by us from a general-purpose base model (Whisper large-v3-turbo, D-21a), not continued from FarukSTT.
 - So **the novelty can't be "I fine-tuned Whisper."** It has to come from:
-  - **Domain adaptation** (customer-support speech) with a public, reproducible benchmark showing we beat existing models *on that domain*.
+  - **A stronger general Darija ASR model**, trained by us on a curated multi-source mix of public Tunisian speech (D-12c), measured on general, task-oriented (test-domain) and telephone-band test sets (P-09). No public customer-support call audio exists, so the original call-center domain target was dropped (D-08v2).
   - A **full system** around the model: diarization, NLP, retrieval, analytics.
   - **Engineering discipline:** evaluation harness, CI gates, reproducibility, serving performance, observability.
 
@@ -42,14 +42,16 @@ The project has three goals:
 
 | Area | Metric | Target |
 |---|---|---|
-| ASR | WER on our held-out **support-call test set** (test-domain, Phase 2) | **≥ 20% lower WER than FarukSTT** (relative), with the paired 95% CI of ΔWER entirely below 0 |
+| ASR | ~~WER on our held-out **support-call test set** (test-domain, Phase 2): ≥ 20% lower WER than FarukSTT (relative), with the paired 95% CI of ΔWER entirely below 0~~ | **Superseded by P-05b** |
+| ASR | WER / CER on **test-domain** (SLURP-TN test, D-13a) | TBD from its baseline in Phase 2 (P-05b) |
+| ASR | WER / CER on **telephone-band test-general** (D-25) | TBD from its baseline in Phase 2 (P-05b) |
 | ASR | WER / CER on the **general** Darija set (test-general) | **WER ≤ 40%, CER ≤ 17%** (match FarukSTT: 38.8% [36.6, 41.4] / 16.3%; it may have seen 3% of these clips, D-12b) |
 | ASR | Looping utterances on test-general (D-15d) | **≤ 10 of 1013** (base Whisper large-v3-turbo: 61) |
 | Diarization | DER on test calls | TBD in Phase 4, after its baseline |
 | NLP | Macro-F1 on intent / sentiment; entity-level F1 on NER | TBD in Phase 5, after its baseline vs. a prompted large LLM |
 | System | End-to-end latency per minute of audio; cost per hour of audio | TBD in Phase 6 |
 | Reproducibility | Someone else can reproduce headline numbers from the repo | Yes |
-| Publication | Model card(s) + dataset card + write-up | Scope TBD (P-04) |
+| Publication | Model card(s) + write-up | Scope TBD (P-04); training-source licenses reviewed before any release (P-04a) |
 
 Rule: **every claim in the README must come with a number and the eval script that produced it.**
 
@@ -98,9 +100,10 @@ Rule: **every claim in the README must come with a number and the eval script th
 
 **C1 — Data & Annotation**
 - Gather public Tunisian audio/text datasets, then clean, dedupe and normalize them to one transcription convention (D-10).
-- Create **domain data**: support-call style audio (method TBD, D-08), transcribed and labelled.
-- Strictly separated splits: `train / dev / test-domain / test-general`. **The test sets are frozen once created** and never used for training or tuning.
-- Datasheet: sources, licenses, speakers, consent, demographics, known gaps.
+- No own recordings (D-08v2): one adapter per public source (D-16) yields a common record; the training mix is a YAML list (D-12c, D-12d). French/English written in Latin script is transliterated with a reviewed lexicon (D-10a).
+- Strictly separated splits: `train / dev / test-domain / test-general`. **The test sets are frozen once created** and never used for training or tuning. test-domain = SLURP-TN test (D-13a).
+- Dedupe report: overlap between sources and against both test sets (D-16).
+- Datasheet (`docs/datasheet.md`, P-10): sources, licenses, hours, speakers, script convention, known gaps.
 
 **C2 — ASR**
 - First, **benchmark** candidate base models on our test sets with no training (D-20).
@@ -173,7 +176,7 @@ Every output records **which model version produced it**, so any result can be t
 |---|---|---|---|---|
 | **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | Done | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
 | **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Done (test-general only, D-13; targets P-05a) | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
-| **2. Domain data** | Domain dataset collected, transcribed, documented | Datasheet written; splits frozen | Not started | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
+| **2. Domain data** | Multi-source training mix and a frozen task-oriented test set from public Tunisian speech (D-08v2) | Adapters for every source + reviewed transliteration lexicon; dedupe report; test-domain frozen, with SLURP-TN and telephone-band test-general columns in the baseline table; `docs/datasheet.md` (P-10) | In progress | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
 | **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | Ablation table; model card draft | Not started | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
 | **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
 | **5. NLP** | Intent / sentiment / NER / summary | 3-way comparison table; chosen approach shipped | Not started | [M5](https://github.com/marzoukimouaid/tuncall/milestone/6) |
@@ -263,15 +266,16 @@ Never in git: `data/`, `checkpoints/`, `outputs/`, `mlruns/`, audio files, model
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Not enough domain audio | Fine-tuning gains too small to show | Role-played calls, augmentation, synthetic data (D-08); decide early in Phase 2 |
+| No public customer-support call audio exists | No call-center benchmark; domain claim limited to task-oriented speech | Multi-source public mix (D-12c) and SLURP-TN as test-domain (D-13a); a call test set (TARIC, LDC, a company's calls) can be added later as a new column (D-08v2) |
+| Noisy (AI-generated) transcripts in large sources | Model learns another system's errors | Used only as with/without ablations, kept only if real-test WER improves (D-12d) |
 | Inconsistent transcription conventions across datasets | Noisy WER, misleading results | Fix one convention (D-10) and normalize everything before training or eval |
-| Test-set contamination (public datasets overlap with model training data) | Inflated numbers | Domain test set recorded by us; dedupe checks |
+| Test-set contamination (public datasets overlap with model training data) | Inflated numbers | Dedupe report across sources and against both test sets (D-16); FarukSTT overlap measured for each test set (D-12b, D-15e) |
 | GPU limits | Slow iteration, can't train large models | Pick model sizes to fit compute (B-01); LoRA; smart scheduling |
 | Slow, high-latency home connection | Blocked network, slow logging, failed uploads | Network rules N-01; async buffered logging D-80d; heavy transfers in the cloud |
 | DagsHub free-tier limits change (storage listed as 200 GB officially, 20 GB elsewhere) | Tracking or artifacts disrupted | Keep artifacts small; MLflow client is standard, so we can move to self-hosted MLflow by changing the URL |
 | A token (HF / DagsHub) gets committed to the public repo | Accounts compromised | Tokens only in environment variables / an untracked `.env`; `.env` in `.gitignore`. Secret-detection hook was not selected (D-84d) and can be added later |
 | Scope creep | Nothing finished by internship season | Hard v1 cut; stretch goals stay stretch |
-| Privacy / consent | Can't publish data; legal exposure | Consent forms; no real customer PII unless anonymized (D-07) |
+| Privacy / consent | Can't publish data; legal exposure | No own recordings (D-08v2), so D-07 consent applies only if recording ever resumes; no real customer PII unless anonymized |
 | Licensing | Can't release a derived dataset or model | Track every source's license in the datasheet |
 
 ---
@@ -301,11 +305,12 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | D-05 | Task tracking? | GitHub Projects / Issues / Notion / none; ✅ decided → §9 |
 | D-06 | Architecture Decision Records (ADRs) alongside this file? | ✅ decided → §9 |
 | D-07 | Privacy policy for audio (consent, PII redaction, retention)? | ✅ decided 2026-11-21 → §9 |
-| D-08 | How do we get domain audio? | Record role-played calls with friends / partner with a company / public content (licensing!) / synthetic TTS / mix; ✅ decided → §9 |
+| D-08 | How do we get domain audio? | Record role-played calls with friends / partner with a company / public content (licensing!) / synthetic TTS / mix; ✅ decided → §9 (D-08 superseded by D-08v2) |
 | D-09 | Annotation tool? | Label Studio / Argilla / custom / spreadsheets |
 | D-10 | **Transcription convention for code-switching** | Arabic script for Darija + Latin for French/English? All Arabic script? Arabizi? Must match or map to public datasets; ✅ decided → §9 |
-| D-11 | Size targets for domain train / test sets (hours)? | |
-| D-12 | Which public datasets to include? | ✅ decided 2026-11-21 → §9 (LinTO for Phase 1–3; more sources later as ablations) |
+| D-11 | Size targets for domain train / test sets (hours)? | Obsolete: nothing is recorded (D-08v2); sizes follow from the chosen sources (D-12c) |
+| D-12 | Which public datasets to include? | ✅ decided 2026-11-21 → §9 (LinTO for Phase 1–3); extended 2026-11-22 (D-12c, D-12d, D-12e) |
+| D-17 | Which dev set does Phase 3 tune on? | Sources' own dev/validation splits (LinTO, SLURP-TN, TEDxTN) are not trained on (D-12c); decide in Phase 3 |
 
 ### B — Compute & environment
 | ID | Question | Notes |
@@ -324,7 +329,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT. Benchmarks ✅ decided (D-22a: HF Transformers); serving still open |
 | D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split |
 | D-24 | Streaming ASR in v1 or batch only? | |
-| D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | |
+| D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | ✅ decided 2026-11-22 → §9 (codec simulation details decided when built) |
 
 ### NLP
 | ID | Question | Notes |
@@ -402,7 +407,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 
 Format: `ID | Date | Decision | Reason | Alternatives rejected`
 
-ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md)
+ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md) · [0006 D-08v2 Phase 2 data strategy](docs/adr/0006-phase2-data-strategy.md)
 
 | ID | Date | Decision | Reason | Alternatives rejected |
 |---|---|---|---|---|
@@ -414,7 +419,7 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 
 | P-02 | 2026-11-20 | Time budget: about 14–20 h/week normally, ≤8 h/week during exams. Quality matters more than speed | Owner is a student | — |
 | P-06 | 2026-11-20 | End-state: portfolio + open source. No multi-tenancy or billing; a permissive license (exact license TBD) | Focus on credibility and reach | Open core, SaaS |
-| D-08 | 2026-11-20 | Domain data strategy (owner delegated this to Claude): **(1) Core:** scripted, role-played support calls recorded under signed consent; the only source for the published domain **test set** and the main domain train set. **(2) Train-only augmentation:** telephone-band simulation, noise, speed; synthetic TTS speech only as an ablation, kept only if it measurably helps. **(3) Opportunistic:** if a company shares real calls, use them as a *private* extra eval set and never publish them. **No scraped web audio** in the published dataset (licensing) | Keeps the dataset fully publishable and the test set clean; real-call eval is a bonus, not a dependency | Web-scraped audio as a main source; synthetic-only data |
+| ~~D-08~~ | 2026-11-20 | **SUPERSEDED by D-08v2.** ~~Domain data strategy (owner delegated this to Claude): **(1) Core:** scripted, role-played support calls recorded under signed consent; the only source for the published domain **test set** and the main domain train set. **(2) Train-only augmentation:** telephone-band simulation, noise, speed; synthetic TTS speech only as an ablation, kept only if it measurably helps. **(3) Opportunistic:** if a company shares real calls, use them as a *private* extra eval set and never publish them. **No scraped web audio** in the published dataset (licensing)~~ | Keeps the dataset fully publishable and the test set clean; real-call eval is a bonus, not a dependency | Web-scraped audio as a main source; synthetic-only data |
 
 | D-10 | 2026-11-20 | Transcription convention: **all Arabic script**, including French/English words (transliterated) | Matches LinTO; one script gives the ASR model consistent targets | Arabic + Latin mixed; Arabizi |
 | B-02 | 2026-11-20 | Dev machine: i7-13700H (20 threads), 32 GB RAM, RTX 4070 Laptop 8 GB, dual-boot Windows 11 / Ubuntu 24.04 LTS | Owner's hardware | — |
@@ -489,6 +494,22 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-15d | 2026-11-22 | **Baseline table gets a "Looping" column:** number of utterances whose normalized hypothesis has **> 20 words with < 30% distinct** (decoder stuck repeating). Looping utterances stay in every score; decoding (D-26) is unchanged | Zero-shot Whisper loops on ~6% of test-general and those clips carry 55–58% of its errors, pushing WER over 100%; the column explains that without touching the frozen test set or tuning decoding on it | Temperature fallback (changes D-26 after seeing test results, less reproducible); dropping looping clips (different test set per model); publishing unexplained |
 | D-12a | 2026-11-21 | **#18 (LinTO train/test overlap) moves to Phase 3.** It only filters training data, and test-general can't change whatever it finds | Nothing is trained in Phase 1 | Doing it in Phase 1 |
 | D-12b | 2026-11-21 | **FarukSTT contamination is measured in Phase 1.** Each test-general reference is normalized with `normalize_arabic`. It counts as "seen" if it has **≥ 4 words** and appears **exactly** among FarukSTT's normalized training transcripts (`FARUKxAUTO/tunisian-asr-cleaned`, pinned by Hub commit sha). Report the % of eligible utterances seen, how many were eligible, and the total. The script runs on Colab | Turns "may be contaminated" into a number next to FarukSTT's score; the 4-word minimum stops common short replies (ايه, باهي) from counting as matches by chance | Note only; any-length matches |
+| D-08v2 | 2026-11-22 | **Domain data strategy (replaces D-08): no own recordings and no synthetic speech.** Phase 2 builds a multi-source training mix (D-12c, D-12d) and a frozen task-oriented test set (D-13a) from public Tunisian speech. A real call test set (TARIC, LDC2025S05, a company's calls) can be added later as a new column. D-07 (consent) and P-07's speaker recruiting apply only if recording ever resumes. ADR 0006 | Recording ~120 role-played calls with ~20 volunteers isn't feasible for the owner; no public Tunisian call-center audio exists (searched the HF Hub, the LDC catalog and recent papers) | Role-played recordings (D-08); TARIC-SLU (railway-desk dialogues, CC BY-NC 4.0; download site down, access means emailing the authors); LDC2025S05 (210 h Tunisian telephone conversations; LDC membership or fee, not redistributable; not pursued, no access expected) |
+| D-08b | 2026-11-22 | **Synthetic speech dropped.** Pilot kept for reference: Habibi-TTS Unified (`SWivid/Habibi-TTS`, F5-TTS, dialect ID `TUN`, CC BY-NC-SA 4.0) spoke Tunisian support-call lines the owner judged good enough, at RTF 0.26 and 2 GB VRAM on the RTX 4070. Pilot files and downloads deleted | Its only purpose was call-center vocabulary; without a call test set its effect can't be measured, and real data grew to ~140 h clean + ~300 h noisy | 10 h synthetic ablation with LLM-written dialogues; other Tunisian TTS (silma-tts-derja, Tunisian XTTS fine-tunes: smaller or gated, all non-commercial) |
+| D-12c | 2026-11-22 | **Core training sources** (each read through an adapter, D-16; only train splits are trained on): **LinTO** (D-12, ~81 h); **SLURP-TN train** (`Elyadata/SLURP-TN`, CC BY-NC-ND 4.0, 2,677 utterances, task-oriented requests by 55 speakers); **Omnilingual ASR corpus, Tunisian only** (`facebook/omnilingual-asr-corpus`, config `aeb_Arab` and nothing else, CC BY 4.0, 2,925 spontaneous answers, ~20 h estimated); **TEDxTN** via the segmented mirror `Hediske/tedxtn-tunisian-segmented` (108 TEDx talks, ~25 h, professional transcripts; upstream `fbougares/TEDxTN` annotations are CC BY-NC-ND 4.0 and ship without audio); **senior_tunisian_voice** (`Fares11/senior_tunisian_voice`, Apache-2.0 as stated, 5,377 records). Owner listened to TEDxTN and senior_tunisian_voice and judged both good quality | Owner's goal is a general Darija model of our own; more varied clean speech (~140 h total) | TuniSpeech-21h (transcripts + YouTube/Facebook links only); TunArTTS (3 h, one speaker reading dictionary entries); TuniFra (no download found); Bulbul (0.11 h Tunisian); OpenSLR 46 (MSA read speech); FarukSTT's training data (no license, D-12) |
+| D-12d | 2026-11-22 | **Noisy-label sources are ablations only:** **Deep Confessions** (`oddadmix/arabic-audio-collection-tunisian-deep-confessions`, ~175 h podcast, AI-assisted transcripts, license "other") and **TunSwitch weakly labelled** (Zenodo 8370566 `weakly_labeled_tn.zip`, CC BY 4.0, automatic labels). Phase 3 trains once with and once without them; they stay only if WER on the real test sets improves. Both are downloaded and shrunk **on Colab** (16 kHz mono, compressed, non-speech tags such as `<laugh>` stripped) and pushed to **private derived HF repos of ours** that record the upstream revision (B-01c b) | Machine transcripts can teach the model another system's errors; 36 GB can't be downloaded from home (N-01) | Adding them to the core mix; skipping them; downloading them at home |
+| D-12e | 2026-11-22 | **TuDiCoI** (SNCFT railway customer-service dialogues, text only) is used **only in Phase 5** (NLP), after checking the original corpus's license | Text only, no audio; a second domain adds little to ASR | TTS scripts from it |
+| D-13a | 2026-11-22 | **test-domain = SLURP-TN test split** (893 utterances, ~1 h, real speakers making task-oriented requests; amends D-13). Its README label is "task-oriented requests", not "support calls". Caveat: SLURP-TN's Hub data has no speaker IDs, so speaker overlap with SLURP-TN train (D-12c) can't be ruled out; it's stated next to the score | The only real task-oriented Tunisian speech available; owner delegated the choice | LDC2025S05 test (no access); TARIC test (no access) |
+| D-14b | 2026-11-22 | **Freezing test-domain:** the D-14 recipe: config `configs/data/test-domain.yaml` pins SLURP-TN's Hub commit, records the sha256 of each test parquet and a per-utterance digest of the **transliterated** references (D-10a); the transliteration lexicon's hash is recorded too; eval refuses to run on any mismatch | Same guarantees as test-general; the references we score against are the transliterated ones | Mirroring the split to our own repo |
+| D-10a | 2026-11-22 | **Latin → Arabic-script transliteration lexicon:** every unique Latin-script word in sources that write French/English in Latin (SLURP-TN: 38 of 40 sampled test rows; TEDxTN: about half; senior_tunisian_voice) is mapped to Arabic script (e.g. `mail` → `ميل`) in one committed lexicon file, **reviewed once by the owner**, and applied identically to train and test | Keeps D-10 (all Arabic script, matching LinTO and the model's targets); the step D-10's implications anticipated | Mixed-script D-10 (inconsistent targets vs LinTO); script-insensitive scoring (hard to explain) |
+| D-16 | 2026-11-22 | **Source adapters:** one module per source in `src/tuncall/data/sources/`, each yielding the same record `{id, source, split, audio (float32 16 kHz mono), text (D-10), speaker (optional), duration}`. Adapters **read each source at a pinned upstream revision**; only data we derive ourselves (D-12d) gets an HF repo of ours. The training mix is a YAML list of `{source, revision, weight}`. A **dedupe report** (normalized-text match) measures overlap between sources and against both frozen test sets before any training | Adding a source (e.g. LDC later) is one adapter + one config line; no re-hosting or uploads from home (N-01); exact versioning (D-81) | Re-hosting every source in our own repo; the `datasets` library (D-15) |
+| D-25 | 2026-11-22 | **Telephone robustness is an explicit goal.** A telephone-band version of test-general (same frozen utterances through a fixed, seeded 8 kHz codec simulation, reproducible from code) becomes a benchmark column. The codec (G.711, AMR, …) is decided when it's built | Real customer audio is mostly phone audio; costs no new data | No telephone evaluation |
+| D-15e | 2026-11-22 | **Benchmark columns for Phase 2:** `scripts/benchmark_asr.py` scores every baseline model on test-general, **test-domain** (SLURP-TN) and **telephone-band test-general** with the same command and metrics (D-70a, D-73, D-15d). FarukSTT's training data is checked for SLURP-TN overlap with the D-12b rule | One table, one command (D-13); contamination stated next to each FarukSTT score | Separate scripts per test set |
+| P-05b | 2026-11-22 | **Domain and telephone targets are set from their baselines** (the P-05 rule), once the D-15e columns exist; supersedes P-05a's "≥ 20% below FarukSTT on test-domain". The test-general targets stay | The 20% margin assumed real in-domain training data, which no longer exists | Keeping the 20% margin unmeasured |
+| P-09 | 2026-11-22 | **Goal restated:** the end product is an ASR model of our own that understands Tunisian Darija in general (code-switching included), beating the public baselines; the customer-support call domain is no longer the ASR target. Later phases (diarization, NLP, search) are unchanged and re-scoped when they start | Owner's direction; no call data exists | Call-center-only ASR |
+| P-04a | 2026-11-22 | **Licensing set aside for now:** sources are chosen for model quality, even under NC/ND licenses (SLURP-TN, TEDxTN). Every source's license is reviewed before any model or dataset release | Owner's call: "worry about publishing later" | Excluding NC/ND sources from training |
+| P-10 | 2026-11-22 | **Phase 2 exit criteria** (§5): adapters for every D-12c/D-12d source + the reviewed lexicon (D-10a); dedupe report (D-16); test-domain frozen (D-14b) with the D-15e columns in the baseline table; **`docs/datasheet.md`** following the "Datasheets for Datasets" questions (motivation, composition, collection, preprocessing, uses, distribution), with its numbers generated by a script | Each criterion is checkable; numbers need scripts (8b.4) | "Datasheet written; splits frozen" (written for own recordings) |
+| S-01c | 2026-11-22 | **Disk before downloads:** core sources ≈ 14 GB (LinTO 5.7, Omnilingual `aeb_Arab` 2.9, TEDxTN 2.8, senior_tunisian_voice 2.4, SLURP-TN 0.3); 21 GB were free. The owner frees ~50 GB before large downloads start; downloads follow N-01 (once, overnight, rate-limited) | Phase 3 checkpoints need room too | Streaming sources at training time |
 
 **Implications of D-12:**
 - test-general is small (~1.3 h), so every WER/CER on it is reported with bootstrap confidence intervals (D-73).
