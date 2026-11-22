@@ -11,9 +11,11 @@ import yaml
 from tuncall.config import load_config
 from tuncall.data.testsets import (
     SAMPLE_RATE,
+    LexiconRef,
     Manifest,
     ParquetFile,
     fetch,
+    iter_cuts,
     iter_rows,
     load_test_set,
     segment_digest,
@@ -101,3 +103,53 @@ def test_changed_cut_is_rejected(frozen: tuple[Manifest, Path]) -> None:
 def test_fetch_with_root_uses_local_files(frozen: tuple[Manifest, Path]) -> None:
     manifest, root = frozen
     assert fetch(manifest, root) == {REL: root / REL}
+
+
+CLIPS = "data/test-00000-of-00001.parquet"
+
+
+@pytest.fixture
+def frozen_clips(tmp_path: Path) -> tuple[Manifest, Path]:
+    """A SLURP-TN-like test set: one clip per row, Latin words mapped by a lexicon."""
+    path = tmp_path / CLIPS
+    path.parent.mkdir(parents=True)
+    rows = [
+        {"audio": {"bytes": wav_bytes(1, 48_000, 2), "path": "16501-9.wav"}, "t": "ابعث Mail"},
+        {"audio": {"bytes": wav_bytes(0.5, SAMPLE_RATE, 1), "path": "77-1.wav"}, "t": "شنوة"},
+    ]
+    pq.write_table(pa.Table.from_pylist(rows), path)
+    lexicon = tmp_path / "lexicon.tsv"
+    lexicon.write_text("mail\tميل\n", encoding="utf-8")
+    draft = Manifest(
+        name="tiny-clips",
+        repo="local/tiny",
+        revision="0" * 40,
+        files=[ParquetFile(path=CLIPS, sha256=sha256_file(path))],
+        utterances=0,
+        hours=0.0,
+        digest="",
+        layout="clips",
+        text_column="t",
+        lexicon=LexiconRef(path=str(lexicon), sha256=sha256_file(lexicon)),
+    )
+    segments = [s for segs, _ in iter_cuts(draft, {CLIPS: path}) for s in segs]
+    return draft.model_copy(
+        update={"utterances": len(segments), "digest": segment_digest(segments)}
+    ), tmp_path
+
+
+def test_clips_load_whole_rows_with_transliterated_references(
+    frozen_clips: tuple[Manifest, Path],
+) -> None:
+    manifest, root = frozen_clips
+    utts = load_test_set(manifest, root)
+    assert [(u.id, u.text) for u in utts] == [("16501-9", "ابعث ميل"), ("77-1", "شنوة")]
+    assert [len(u.audio) for u in utts] == [16_000, 8_000]
+
+
+def test_changed_lexicon_is_rejected(frozen_clips: tuple[Manifest, Path]) -> None:
+    manifest, root = frozen_clips
+    assert manifest.lexicon is not None
+    Path(manifest.lexicon.path).write_text("mail\tميلل\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="lexicon"):
+        load_test_set(manifest, root)

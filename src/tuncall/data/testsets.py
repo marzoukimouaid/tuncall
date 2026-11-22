@@ -4,8 +4,11 @@ A test set is a pinned Hub revision plus a committed manifest (``configs/data/*.
 holding the sha256 of every parquet file and a digest of how utterances are cut from
 them. Loading verifies both, so the audio and the references can't change silently.
 
-An utterance is one timestamped segment of a recording; its reference is the segment's
-cleaned ``transcript`` field (D-14a). Audio is downmixed to mono and resampled to 16 kHz.
+Two layouts: ``segments`` (test-general: one utterance per timestamped segment of a LinTO
+recording, reference = the segment's cleaned ``transcript``, D-14a) and ``clips``
+(test-domain: one utterance per row, reference = ``text_column``, id = the audio file name).
+A manifest may pin the D-10a lexicon by sha256; references are then transliterated before
+the digest is taken (D-14b). Audio is downmixed to mono and resampled to 16 kHz.
 """
 
 import hashlib
@@ -13,6 +16,7 @@ import io
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pyarrow.parquet as pq
@@ -21,12 +25,19 @@ import soxr
 from huggingface_hub import hf_hub_download
 
 from tuncall.config import StrictModel
+from tuncall.data.lexicon import load_lexicon, transliterate
 
 SAMPLE_RATE = 16_000
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class ParquetFile(StrictModel):
     path: str
+    sha256: str
+
+
+class LexiconRef(StrictModel):
+    path: str  # relative to the repo root
     sha256: str
 
 
@@ -38,6 +49,9 @@ class Manifest(StrictModel):
     utterances: int
     hours: float
     digest: str
+    layout: Literal["segments", "clips"] = "segments"
+    text_column: str | None = None  # clips only
+    lexicon: LexiconRef | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +88,46 @@ def iter_rows(files: Mapping[str, Path]) -> Iterator[tuple[list[Segment], bytes]
             yield segments, row["audio"]["bytes"]
 
 
+def iter_clips(files: Mapping[str, Path], column: str) -> Iterator[tuple[list[Segment], bytes]]:
+    """One whole-clip segment per row (end 0.0 = to the end of the audio)."""
+    for local in files.values():
+        for row in pq.read_table(local, columns=["audio", column]).to_pylist():
+            yield (
+                [Segment(Path(row["audio"]["path"]).stem, 0.0, 0.0, row[column])],
+                row["audio"]["bytes"],
+            )
+
+
+def manifest_lexicon(manifest: Manifest) -> dict[str, str]:
+    """The pinned lexicon, refused if its sha256 changed; empty when none is pinned."""
+    if manifest.lexicon is None:
+        return {}
+    path = REPO_ROOT / manifest.lexicon.path
+    actual = sha256_file(path)
+    if actual != manifest.lexicon.sha256:
+        raise ValueError(
+            f"{manifest.name}: lexicon {path} sha256 {actual} != frozen {manifest.lexicon.sha256}"
+        )
+    return load_lexicon(path)
+
+
+def iter_cuts(
+    manifest: Manifest, files: Mapping[str, Path]
+) -> Iterator[tuple[list[Segment], bytes]]:
+    """Each row's segments, references transliterated with the pinned lexicon."""
+    lexicon = manifest_lexicon(manifest)
+    if manifest.layout == "segments":
+        rows = iter_rows(files)
+    else:
+        assert manifest.text_column, f"{manifest.name}: clips layout needs text_column"
+        rows = iter_clips(files, manifest.text_column)
+    for segments, encoded in rows:
+        yield (
+            [Segment(s.id, s.start, s.end, transliterate(s.text, lexicon)) for s in segments],
+            encoded,
+        )
+
+
 def segment_digest(segments: list[Segment]) -> str:
     h = hashlib.sha256()
     for s in segments:
@@ -94,7 +148,8 @@ def fetch(manifest: Manifest, root: Path | None = None) -> dict[str, Path]:
 
 
 def decode_segment(audio: np.ndarray, sr: int, seg: Segment) -> np.ndarray:
-    clip = audio[round(seg.start * sr) : round(seg.end * sr)].mean(axis=1)
+    end = round(seg.end * sr) if seg.end else len(audio)  # 0.0 = whole clip
+    clip = audio[round(seg.start * sr) : end].mean(axis=1)
     if sr != SAMPLE_RATE:
         clip = soxr.resample(clip, sr, SAMPLE_RATE)
     return clip.astype(np.float32)
@@ -110,7 +165,7 @@ def load_test_set(manifest: Manifest, root: Path | None = None) -> list[Utteranc
 
     utterances: list[Utterance] = []
     all_segments: list[Segment] = []
-    for segments, encoded in iter_rows(files):
+    for segments, encoded in iter_cuts(manifest, files):
         audio, sr = sf.read(io.BytesIO(encoded), dtype="float32", always_2d=True)
         for seg in segments:
             utterances.append(Utterance(seg.id, decode_segment(audio, sr, seg), seg.text))
