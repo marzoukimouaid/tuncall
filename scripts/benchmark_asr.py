@@ -282,9 +282,12 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="first N utterances only (pre-flight)")
     parser.add_argument("--out", type=Path, default=Path("outputs/phase1"))
     parser.add_argument("--force", action="store_true", help="rerun cached models")
+    parser.add_argument("--batch-size", type=int, help="override the config (D-15g: smaller GPUs)")
     args = parser.parse_args()
 
     cfg = load_config(args.config, BenchmarkConfig)
+    if args.batch_size:
+        cfg = cfg.model_copy(update={"batch_size": args.batch_size})
     selected = args.models.split(",") if args.models else list(cfg.models)
     if unknown := set(selected) - set(cfg.models):
         parser.error(f"unknown models: {sorted(unknown)}")

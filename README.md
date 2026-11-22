@@ -24,7 +24,7 @@ Reproduce: `uv run python scripts/benchmark_asr.py --config configs/phase1/basel
 <!-- baselines:end -->
 
 <!-- farukstt-overlap:start -->
-3.0% of test-general utterances with ≥ 4 words (24/790 eligible, 1013 total) appear verbatim in FarukSTT's training data (`FARUKxAUTO/tunisian-asr-cleaned` train split, D-12b; `scripts/farukstt_overlap.py`).
+3.5% of test-general utterances with ≥ 4 words (28/790 eligible, 1013 total) appear verbatim in FarukSTT's training data; 0.0% of test-domain utterances with ≥ 4 words (0/678 eligible, 893 total) appear verbatim in FarukSTT's training data (`FARUKxAUTO/tunisian-asr-cleaned` train split, D-12b, lexicon applied to both sides; `scripts/farukstt_overlap.py`).
 <!-- farukstt-overlap:end -->
 
 ## Development
