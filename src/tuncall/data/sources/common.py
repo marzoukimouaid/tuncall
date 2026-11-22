@@ -9,10 +9,9 @@ from typing import Any
 import numpy as np
 import pyarrow.parquet as pq
 import soundfile as sf
-import soxr
 from huggingface_hub import snapshot_download
 
-from tuncall.data.testsets import SAMPLE_RATE
+from tuncall.data.testsets import SAMPLE_RATE, Segment, decode_segment
 
 
 @dataclass(frozen=True)
@@ -45,35 +44,46 @@ def rows(paths: list[Path], columns: list[str]) -> Iterator[dict[str, Any]]:
             yield from batch.to_pylist()
 
 
-def decode(encoded: bytes) -> np.ndarray:
+def read(encoded: bytes) -> tuple[np.ndarray, int]:
     audio, sr = sf.read(io.BytesIO(encoded), dtype="float32", always_2d=True)
-    mono = audio.mean(axis=1)
-    if sr != SAMPLE_RATE:
-        mono = soxr.resample(mono, sr, SAMPLE_RATE)
-    return mono.astype(np.float32)
+    return audio, sr
 
 
-def record(id: str, audio: np.ndarray, text: str, speaker: str | None = None) -> Record:
-    source, split, _ = id.split("/", 2)
-    return Record(id, source, split, audio, text, speaker, len(audio) / SAMPLE_RATE)
+def decode(encoded: bytes) -> np.ndarray:
+    """Whole clip as float32 mono at SAMPLE_RATE."""
+    audio, sr = read(encoded)
+    return decode_segment(audio, sr, Segment("", 0.0, len(audio) / sr, ""))
+
+
+def record(
+    source: str, split: str, key: str, audio: np.ndarray, text: str, speaker: str | None = None
+) -> Record:
+    rid = f"{source}/{split}/{key}"
+    return Record(rid, source, split, audio, text, speaker, len(audio) / SAMPLE_RATE)
 
 
 def clips(source: str, split: str, paths: list[Path], text: str) -> Iterator[Record]:
-    """One record per row: the row's whole audio and its ``text`` column."""
-    for i, row in enumerate(rows(paths, ["audio", text])):
-        yield record(f"{source}/{split}/{i:06d}", decode(row["audio"]["bytes"]), row[text])
+    """One record per row: the row's whole audio and its ``text`` column.
+
+    The key is the upstream file name (``audio.path``) without extension, so ids
+    trace back to the source and survive shard reordering.
+    """
+    for row in rows(paths, ["audio", text]):
+        key = Path(row["audio"]["path"]).stem
+        yield record(source, split, key, decode(row["audio"]["bytes"]), row[text])
 
 
-def segments(prefix: str, paths: list[Path]) -> Iterator[Record]:
+def segments(source: str, split: str, paths: list[Path], subsets: bool = False) -> Iterator[Record]:
     """One record per timestamped segment of each recording (LinTO layout, D-14a).
 
-    ``prefix`` may contain ``{subset}``, the folder under ``data/``.
+    Cut exactly like test-general (``decode_segment``). With ``subsets``, the folder
+    under ``data/`` (LinTO's subset) starts the key.
     """
     for path in paths:
-        subset = path.parent.parent.name
+        prefix = f"{path.parent.parent.name}/" if subsets else ""
         for row in rows([path], ["audio_id", "audio", "segments"]):
-            audio = decode(row["audio"]["bytes"])
+            audio, sr = read(row["audio"]["bytes"])
             for i, s in enumerate(row["segments"]):
-                clip = audio[round(s["start"] * SAMPLE_RATE) : round(s["end"] * SAMPLE_RATE)]
-                rid = f"{prefix.format(subset=subset)}/{row['audio_id']}/{i:03d}"
-                yield record(rid, clip, s["transcript"])
+                seg = Segment("", s["start"], s["end"], s["transcript"])
+                key = f"{prefix}{row['audio_id']}/{i:03d}"
+                yield record(source, split, key, decode_segment(audio, sr, seg), seg.text)

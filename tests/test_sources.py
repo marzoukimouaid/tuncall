@@ -14,12 +14,14 @@ from tuncall.data.sources import SOURCES, Record, TrainMix
 MIX = Path(__file__).resolve().parents[1] / "configs" / "data" / "train-mix.yaml"
 
 
-def audio(seconds: float, sr: int = 16_000, channels: int = 1) -> dict[str, object]:
+def audio(
+    seconds: float, sr: int = 16_000, channels: int = 1, name: str = "x.wav"
+) -> dict[str, object]:
     t = np.arange(int(seconds * sr)) / sr
     tone = 0.1 * np.sin(2 * np.pi * 440 * t)
     buf = io.BytesIO()
     sf.write(buf, np.stack([tone] * channels, axis=1), sr, format="WAV")
-    return {"bytes": buf.getvalue(), "path": "x.wav"}
+    return {"bytes": buf.getvalue(), "path": name}
 
 
 def write(root: Path, rel: str, rows: list[dict[str, object]]) -> None:
@@ -29,7 +31,7 @@ def write(root: Path, rel: str, rows: list[dict[str, object]]) -> None:
 
 
 def load(source: str, split: str, root: Path) -> list[Record]:
-    return list(SOURCES[source](split, root=root))
+    return list(SOURCES[source](split, "0" * 40, root=root))
 
 
 def check_audio(records: list[Record], seconds: list[float]) -> None:
@@ -43,13 +45,21 @@ def test_slurp_tn_yields_one_record_per_row(tmp_path: Path) -> None:
         tmp_path,
         "data/train-00000-of-00001.parquet",
         [
-            {"audio": audio(1.0, 48_000, 2), "tun_transcription": "ابعث mail", "intent": "x"},
-            {"audio": audio(0.5), "tun_transcription": "شنوة الطقس", "intent": "y"},
+            {
+                "audio": audio(1.0, 48_000, 2, "5172-13.wav"),
+                "tun_transcription": "ابعث mail",
+                "intent": "x",
+            },
+            {
+                "audio": audio(0.5, name="5891-13.wav"),
+                "tun_transcription": "شنوة الطقس",
+                "intent": "y",
+            },
         ],
     )
     write(tmp_path, "data/test-00000-of-00001.parquet", [])  # other splits are ignored
     records = load("slurp_tn", "train", tmp_path)
-    assert [r.id for r in records] == ["slurp_tn/train/000000", "slurp_tn/train/000001"]
+    assert [r.id for r in records] == ["slurp_tn/train/5172-13", "slurp_tn/train/5891-13"]
     assert [r.text for r in records] == ["ابعث mail", "شنوة الطقس"]
     assert {(r.source, r.split, r.speaker) for r in records} == {("slurp_tn", "train", None)}
     check_audio(records, [1.0, 0.5])
@@ -59,15 +69,21 @@ def test_tedxtn_reads_sentence(tmp_path: Path) -> None:
     write(
         tmp_path,
         "data/train-00000-of-00005.parquet",
-        [{"audio": audio(0.25), "sentence": "soi disant اللي", "duration": 0.25}],
+        [
+            {
+                "audio": audio(0.25, name="talk_0_250.wav"),
+                "sentence": "soi disant اللي",
+                "duration": 0.25,
+            }
+        ],
     )
     write(
         tmp_path,
         "data/train-00001-of-00005.parquet",
-        [{"audio": audio(0.5), "sentence": "donc مشينا", "duration": 0.5}],
+        [{"audio": audio(0.5, name="talk_250_750.wav"), "sentence": "donc مشينا", "duration": 0.5}],
     )
     records = load("tedxtn", "train", tmp_path)
-    assert [r.id for r in records] == ["tedxtn/train/000000", "tedxtn/train/000001"]
+    assert [r.id for r in records] == ["tedxtn/train/talk_0_250", "tedxtn/train/talk_250_750"]
     assert [r.text for r in records] == ["soi disant اللي", "donc مشينا"]
     check_audio(records, [0.25, 0.5])
 

@@ -43,7 +43,7 @@ def main() -> None:
     records = (
         r
         for e in mix.sources
-        for r in islice(SOURCES[e.source](args.split, revision=e.revision), args.limit)
+        for r in islice(SOURCES[e.source](args.split, e.revision), args.limit)
     )
     print(table(records))
 
