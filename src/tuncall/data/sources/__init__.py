@@ -17,6 +17,16 @@ SOURCES: dict[str, Callable[..., Iterator[Record]]] = {
     "senior": senior.records,
 }
 
+# Every split each source publishes. Only train is trained on (D-12c); the others are
+# read for the dedupe report (D-16). linto/test is test-general, slurp_tn/test test-domain.
+SPLITS: dict[str, tuple[str, ...]] = {
+    "linto": ("train", "test"),
+    "slurp_tn": ("train", "validation", "test"),
+    "omnilingual": ("train",),
+    "tedxtn": ("train", "validation", "test"),
+    "senior": ("train",),
+}
+
 
 class MixEntry(StrictModel):
     source: str
@@ -37,4 +47,4 @@ class TrainMix(StrictModel):
     sources: list[MixEntry]
 
 
-__all__ = ["SOURCES", "MixEntry", "Record", "TrainMix"]
+__all__ = ["SOURCES", "SPLITS", "MixEntry", "Record", "TrainMix"]

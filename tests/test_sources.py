@@ -9,7 +9,7 @@ import soundfile as sf
 from pydantic import ValidationError
 
 from tuncall.config import load_config
-from tuncall.data.sources import SOURCES, Record, TrainMix
+from tuncall.data.sources import SOURCES, SPLITS, Record, TrainMix
 
 MIX = Path(__file__).resolve().parents[1] / "configs" / "data" / "train-mix.yaml"
 
@@ -180,3 +180,7 @@ def test_train_mix_config_loads() -> None:
 def test_train_mix_rejects_bad_entries(entry: dict[str, object], error: str) -> None:
     with pytest.raises(ValidationError, match=error):
         TrainMix.model_validate({"sources": [entry]})
+
+
+def test_every_source_lists_its_splits() -> None:
+    assert sorted(SPLITS) == sorted(SOURCES)
