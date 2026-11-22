@@ -1,8 +1,18 @@
 from pathlib import Path
 
 import pytest
-from benchmark_asr import is_loop, read_jsonl, render_table, score_rows, to_run, write_jsonl
+from benchmark_asr import (
+    BenchmarkConfig,
+    is_loop,
+    read_jsonl,
+    render_table,
+    score_rows,
+    summary_table,
+    to_run,
+    write_jsonl,
+)
 
+from tuncall.config import load_config
 from tuncall.eval.report import replace_block
 
 
@@ -68,3 +78,26 @@ def test_is_loop_flags_runaway_repetition_only() -> None:
     assert is_loop(" ".join(["نحن"] * 147))
     assert not is_loop("ايه ايه ايه باهي")  # short repeats are normal speech
     assert not is_loop(" ".join(f"w{i}" for i in range(40)))  # long but varied
+
+
+def test_summary_table_has_one_column_per_test_set_sorted_by_the_first() -> None:
+    refs = ["a b c d"] * 2
+    results = {
+        "general": {"m1": _rows(refs, ["a b x y"] * 2), "m2": _rows(refs, ["a b c d"] * 2)},
+        "telephone": {"m1": _rows(refs, ["x y z w"] * 2), "m2": _rows(refs, ["a b c x"] * 2)},
+    }
+    lines = summary_table(results).splitlines()
+    assert lines[0] == "| Model | general WER / CER % | telephone WER / CER % |"
+    assert lines[2] == "| m2 | 0.0 / 0.0 | 25.0 / 14.3 |"
+    assert lines[3].startswith("| m1 | 50.0 / ")
+
+
+def test_baseline_config_scores_three_test_sets() -> None:
+    cfg = load_config(
+        Path(__file__).resolve().parents[1] / "configs/phase1/baselines.yaml", BenchmarkConfig
+    )
+    assert {k: (str(v.manifest), v.channel) for k, v in cfg.test_sets.items()} == {
+        "test-general": ("configs/data/test-general.yaml", "clean"),
+        "test-domain": ("configs/data/test-domain.yaml", "clean"),
+        "telephone": ("configs/data/test-general.yaml", "telephone"),
+    }

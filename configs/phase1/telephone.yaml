@@ -1,3 +1,0 @@
-# The Phase 1 baselines on telephone-band test-general (D-25, D-25a).
-base: baselines.yaml
-channel: telephone

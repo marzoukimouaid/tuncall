@@ -1,5 +1,12 @@
 # Phase 1 zero-shot benchmark defaults (D-26, D-15a).
-manifest: configs/data/test-general.yaml
+test_sets:  # D-15e; the first orders the summary table
+  test-general:
+    manifest: configs/data/test-general.yaml
+  test-domain:
+    manifest: configs/data/test-domain.yaml
+  telephone:  # test-general through the D-25a landline channel
+    manifest: configs/data/test-general.yaml
+    channel: telephone
 lexicon: configs/data/lexicon.tsv  # D-16c: applied to refs and hyps when scoring
 experiment: phase1-baselines
 reference_model: farukstt
