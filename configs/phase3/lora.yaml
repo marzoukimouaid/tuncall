@@ -1,0 +1,43 @@
+# Phase 3 first run: LoRA on Whisper large-v3-turbo, laptop RTX 4070 (D-21b, D-21c, D-17a).
+experiment: phase3-asr
+base_model:  # D-21a, same pin as the Phase 1 baseline
+  id: openai/whisper-large-v3-turbo
+  revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+mix: configs/data/train-mix.yaml
+lexicon: configs/data/lexicon.tsv
+dev_holdout: configs/data/dev-linto.txt
+dev_splits:  # dev = LinTO hold-out + these (D-17a)
+  slurp_tn: validation
+  tedxtn: validation
+cache: ${HF_HOME}/tuncall-cache/phase3  # ~15 GB, built by scripts/prepare_asr_data.py
+language: ar  # D-26
+task: transcribe
+max_new_tokens: 440  # D-15a
+lora:  # rank 32 on attention + MLP, encoder and decoder
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, out_proj, fc1, fc2]
+trainer:  # Seq2SeqTrainingArguments
+  output_dir: checkpoints/phase3/lora-r32
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4  # effective batch 32
+  learning_rate: 1.0e-4
+  warmup_steps: 500
+  lr_scheduler_type: linear
+  num_train_epochs: 3
+  bf16: true
+  activation_checkpointing: true
+  per_device_eval_batch_size: 4  # beam 5 fits 8 GB at 4 (D-15g)
+  generation_num_beams: 5  # D-26, also during training (D-17a)
+  eval_strategy: steps
+  eval_steps: 1000
+  save_strategy: steps
+  save_steps: 1000
+  save_total_limit: 2  # best + latest (S-01)
+  load_best_model_at_end: true
+  metric_for_best_model: wer
+  greater_is_better: false
+  logging_steps: 25
+  dataloader_num_workers: 4
+  seed: 0
