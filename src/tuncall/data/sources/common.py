@@ -87,3 +87,13 @@ def segments(source: str, split: str, paths: list[Path], subsets: bool = False) 
                 seg = Segment("", s["start"], s["end"], s["transcript"])
                 key = f"{prefix}{row['audio_id']}/{i:03d}"
                 yield record(source, split, key, decode_segment(audio, sr, seg), seg.text)
+
+
+def derived(
+    source: str, split: str, repo: str, revision: str, root: Path | None
+) -> Iterator[Record]:
+    """Our own derived repos (D-12d, ``scripts/prepare_noisy.py``): text already cleaned,
+    audio 16 kHz mono FLAC, the upstream key in ``key``."""
+    paths = parquet_files(repo, revision, f"data/{split}-*.parquet", root)
+    for row in rows(paths, ["key", "audio", "text"]):
+        yield record(source, split, row["key"], decode(row["audio"]["bytes"]), row["text"])
