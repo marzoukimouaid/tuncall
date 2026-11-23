@@ -1,4 +1,4 @@
-from dedupe_report import overlap, render
+from dedupe_report import exclusions, overlap, render
 
 SETS = {
     "linto-train": [
@@ -40,3 +40,14 @@ def test_render_lists_rows_and_columns_in_order() -> None:
         "| a-train | 1 | 0 | 0 |\n"
         "| a-test | 0 | 0 | 0 |"
     )
+
+
+def test_exclusions_keep_train_clips_that_match_an_evaluation_split() -> None:
+    matches = {
+        "linto/train/a": ["linto-test"],  # test-general: dropped
+        "slurp_tn/train/b": ["slurp_tn-validation"],  # validation: dropped
+        "linto/train/c": ["tedxtn-train"],  # train-only duplicate: kept
+        "tedxtn/train/d": ["linto-train", "tedxtn-test"],  # one eval match is enough
+        "linto/test/e": ["linto-train"],  # test clips are never in the mix
+    }
+    assert exclusions(matches) == ["linto/train/a", "slurp_tn/train/b", "tedxtn/train/d"]
