@@ -1,0 +1,17 @@
+# Core training sources (D-12c; senior_tunisian_voice dropped as a LinTO copy, D-12f),
+# each read by its adapter in src/tuncall/data/sources/
+# at the pinned Hub commit below (D-16). Only train splits are trained on.
+# weight: relative sampling weight; 1.0 everywhere = every clip once (its use is set in Phase 3).
+sources:
+  - source: linto
+    revision: 99796bfd5e8b48febaac60633d1ec97a658fa511
+    weight: 1.0
+  - source: slurp_tn
+    revision: a5c2ec062fa91b5a51b7c914859eb1e6525a6f5d
+    weight: 1.0
+  - source: omnilingual
+    revision: 8648ba8946377697b427ae952076e49fc0e5e44d
+    weight: 1.0
+  - source: tedxtn
+    revision: 8eef268bba217bfa2b59b742d472738a1946122f
+    weight: 1.0

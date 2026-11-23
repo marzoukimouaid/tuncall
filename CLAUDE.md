@@ -50,6 +50,9 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `config.py`: `load_config(path, Model)` loads YAML, deep-merges a `base:` parent chain (lists replaced) and validates with Pydantic. Config models subclass `StrictModel` so unknown keys are errors (D-87, D-87a). Log the resolved config with `cfg.model_dump(mode="json")`.
 - `tracking.py`: `with Tracker(experiment, config=..., dataset=..., buffer_path=...) as t:` queues MLflow writes for a background thread; failed batches go to a JSONL buffer and are replayed; errors are logged, never raised; runs are tagged with git commit, dataset and machine; artifacts over 50 MB are refused (D-80d, D-80e). Use it for every training/eval run instead of calling `mlflow` directly.
 
+- `data/sources/`: one adapter per training source (D-16); `SOURCES[name](split, revision=..., root=None)` yields `Record`s (16 kHz mono float32 audio, raw text). `TrainMix` validates `configs/data/train-mix.yaml`; `scripts/source_stats.py` prints hours per source and exports texts (run on Colab, D-16b).
+- `data/lexicon.py`: `load_lexicon`, `latin_words`, `transliterate` for the D-10a lexicon (`configs/data/lexicon.tsv`); `scripts/latin_words.py` and `scripts/dedupe_report.py` read the text export.
+- `data/telephone.py`: `telephone(audio)` is the deterministic D-25a landline channel (8 kHz, A-law); the benchmark applies it with `channel: telephone`.
 - `asr/transcribe.py`: `load(model_id, revision, device, dtype)` and batched `transcribe(...)` for Whisper models with HF Transformers (D-22a, D-26). Used by `scripts/benchmark_asr.py` (D-15a).
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.

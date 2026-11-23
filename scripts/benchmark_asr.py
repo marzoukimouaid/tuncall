@@ -1,8 +1,9 @@
-"""Zero-shot ASR benchmark on test-general: the Phase 1 baseline table (D-15, D-15a, D-15b).
+"""Zero-shot ASR benchmark: the baseline tables (D-15, D-15a, D-15b, D-15e).
 
-Each model's predictions are cached in ``<out>/<model>.jsonl``; a cached model is skipped
-unless ``--force``. The table is built from the cached files and written into README.md only
-when every configured model is cached and no ``--limit`` is set.
+Every model is scored on every configured test set; ``channel: telephone`` passes a test set
+through the D-25a landline simulation. Predictions are cached in ``<out>/<test set>/<model>.jsonl``
+and a cached pair is skipped unless ``--force``. The tables are built from the cached files and
+written into README.md only when every pair is cached and no ``--limit`` is set.
 
     uv run python scripts/benchmark_asr.py --config configs/phase1/baselines.yaml
 """
@@ -10,11 +11,14 @@ when every configured model is cached and no ``--limit`` is set.
 import argparse
 import gc
 import json
+from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from tuncall.config import StrictModel, load_config
-from tuncall.data.testsets import Manifest, Utterance, load_test_set
+from tuncall.data.lexicon import load_lexicon, transliterate
+from tuncall.data.telephone import telephone
+from tuncall.data.testsets import Manifest, Utterance, load_test_set, sha256_file
 from tuncall.eval.metrics import (
     bootstrap_ci,
     char_counts,
@@ -35,8 +39,13 @@ class ModelRef(StrictModel):
     revision: str
 
 
-class BenchmarkConfig(StrictModel):
+class EvalSet(StrictModel):
     manifest: Path
+    channel: Literal["clean", "telephone"] = "clean"  # D-25a
+
+
+class BenchmarkConfig(StrictModel):
+    test_sets: dict[str, EvalSet]  # the first one orders the summary table
     experiment: str
     reference_model: str
     batch_size: int
@@ -44,22 +53,26 @@ class BenchmarkConfig(StrictModel):
     task: str
     num_beams: int
     max_new_tokens: int
+    lexicon: Path | None = None  # D-10a lexicon applied when scoring (D-16c)
     models: dict[str, ModelRef]
 
 
 Row = dict[str, Any]
 
 
-def score_rows(utterances: list[Utterance], hyps: list[str]) -> list[Row]:
+def score_rows(refs: list[tuple[str, str]], hyps: list[str], lexicon: dict[str, str]) -> list[Row]:
+    """Score (id, reference) pairs. Both sides are transliterated with the lexicon (D-10a,
+    D-16c) and normalized (D-10); the frozen reference itself is kept unchanged."""
     rows = []
-    for u, hyp in zip(utterances, hyps, strict=True):
-        ref_norm, hyp_norm = normalize_arabic(u.text), normalize_arabic(hyp)
+    for (uid, ref), hyp in zip(refs, hyps, strict=True):
+        ref_norm = normalize_arabic(transliterate(ref, lexicon))
+        hyp_norm = normalize_arabic(transliterate(hyp, lexicon))
         [(we, wl)] = word_counts([ref_norm], [hyp_norm])
         [(ce, cl)] = char_counts([ref_norm], [hyp_norm])
         rows.append(
             {
-                "id": u.id,
-                "ref": u.text,
+                "id": uid,
+                "ref": ref,
                 "hyp": hyp,
                 "ref_norm": ref_norm,
                 "hyp_norm": hyp_norm,
@@ -152,10 +165,49 @@ def render_table(results: dict[str, list[Row]], reference: str) -> str:
     return "\n".join(lines)
 
 
-def readme_block(table: str, config: Path, n: int) -> str:
+def summary_table(results: dict[str, dict[str, list[Row]]]) -> str:
+    """One row per model, one WER / CER column per test set, sorted by the first set's WER."""
+    sets = list(results)
+    summaries = {t: {m: summarize(rows) for m, rows in res.items()} for t, res in results.items()}
+    lines = [
+        "| Model | " + " | ".join(f"{t} WER / CER %" for t in sets) + " |",
+        "|---" * (len(sets) + 1) + "|",
+    ]
+    for model in sorted(summaries[sets[0]], key=lambda m: summaries[sets[0]][m]["wer"]):
+        cells = [
+            f"{_pct(summaries[t][model]['wer'])} / {_pct(summaries[t][model]['cer'])}" for t in sets
+        ]
+        lines.append(f"| {model} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def scoring_lexicon(cfg: BenchmarkConfig) -> tuple[dict[str, str], str]:
+    """The configured lexicon and its sha256 (recorded with every score), or none."""
+    if cfg.lexicon is None:
+        return {}, "none"
+    path = ROOT / cfg.lexicon
+    return load_lexicon(path), sha256_file(path)
+
+
+def rescore(rows: list[Row], lexicon: dict[str, str]) -> list[Row]:
+    """Re-score cached predictions, so the table always uses the current lexicon."""
+    return score_rows([(r["id"], r["ref"]) for r in rows], [r["hyp"] for r in rows], lexicon)
+
+
+def readme_block(
+    results: dict[str, dict[str, list[Row]]], cfg: BenchmarkConfig, config: Path, lexicon_id: str
+) -> str:
+    details = "".join(
+        f"**{name}** ({len(next(iter(res.values())))} utterances, `{cfg.test_sets[name].manifest}`"
+        f"{', telephone channel D-25a' if cfg.test_sets[name].channel == 'telephone' else ''})\n\n"
+        f"{render_table(res, cfg.reference_model)}\n\n"
+        for name, res in results.items()
+    )
     return (
-        f"{table}\n\n"
-        f"{n} utterances. WER/CER after Arabic normalization (D-10), 95% bootstrap CIs over "
+        f"{summary_table(results)}\n\n{details}"
+        "Latin-script words in references and hypotheses are transliterated "
+        f"with the D-10a lexicon (sha256 `{lexicon_id}`) before scoring (D-16c). "
+        f"WER/CER after Arabic normalization (D-10), 95% bootstrap CIs over "
         "utterances (1000 resamples), ΔWER is a paired bootstrap (D-73). Raw WER is on "
         "unnormalized text. Beam 5, Arabic forced, no temperature fallback (D-26). "
         "Looping = utterances where the decoder got stuck repeating (hypothesis over 20 words, "
@@ -166,7 +218,13 @@ def readme_block(table: str, config: Path, n: int) -> str:
 
 
 def run_model(
-    key: str, cfg: BenchmarkConfig, utterances: list[Utterance], manifest: Manifest, out: Path
+    key: str,
+    test_set: str,
+    cfg: BenchmarkConfig,
+    utterances: list[Utterance],
+    manifest: Manifest,
+    out: Path,
+    lexicon: tuple[dict[str, str], str],
 ) -> None:
     import torch  # heavy; only needed when a model actually runs
 
@@ -192,11 +250,11 @@ def run_model(
     if cuda:
         torch.cuda.empty_cache()
 
-    rows = score_rows(utterances, hyps)
+    rows = score_rows([(u.id, u.text) for u in utterances], hyps, lexicon[0])
     path = out / f"{key}.jsonl"
     write_jsonl(path, rows)
     summary = summarize(rows)
-    print(f"{key}: WER {_pct(summary['wer'])}  CER {_pct(summary['cer'])}", flush=True)
+    print(f"{test_set}/{key}: WER {_pct(summary['wer'])}  CER {_pct(summary['cer'])}", flush=True)
     with Tracker(
         cfg.experiment,
         config=cfg.model_dump(mode="json")
@@ -204,11 +262,13 @@ def run_model(
             "model": key,
             "model_id": ref.id,
             "model_revision": ref.revision,
+            "test_set": test_set,
             "utterances": len(rows),
+            "lexicon_sha256": lexicon[1],
         },
         dataset=f"{manifest.repo}@{manifest.revision}",
         buffer_path=out / "tracking-buffer.jsonl",
-        run_name=key,
+        run_name=f"{test_set}/{key}",
     ) as tracker:
         tracker.log_metrics(summary, step=0)
         tracker.log_artifact(path)
@@ -218,34 +278,49 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--models", help="comma-separated subset of the configured models")
+    parser.add_argument("--test-sets", help="comma-separated subset of the configured test sets")
     parser.add_argument("--limit", type=int, help="first N utterances only (pre-flight)")
     parser.add_argument("--out", type=Path, default=Path("outputs/phase1"))
     parser.add_argument("--force", action="store_true", help="rerun cached models")
+    parser.add_argument("--batch-size", type=int, help="override the config (D-15g: smaller GPUs)")
     args = parser.parse_args()
 
     cfg = load_config(args.config, BenchmarkConfig)
+    if args.batch_size:
+        cfg = cfg.model_copy(update={"batch_size": args.batch_size})
     selected = args.models.split(",") if args.models else list(cfg.models)
     if unknown := set(selected) - set(cfg.models):
         parser.error(f"unknown models: {sorted(unknown)}")
+    sets = args.test_sets.split(",") if args.test_sets else list(cfg.test_sets)
+    if unknown := set(sets) - set(cfg.test_sets):
+        parser.error(f"unknown test sets: {sorted(unknown)}")
     out: Path = args.out / f"limit-{args.limit}" if args.limit else args.out
-    out.mkdir(parents=True, exist_ok=True)
 
-    if todo := to_run(selected, out, args.force):
-        manifest = load_config(ROOT / cfg.manifest, Manifest)
-        utterances = load_test_set(manifest)[: args.limit]
-        for key in todo:
-            run_model(key, cfg, utterances, manifest, out)
+    lexicon = scoring_lexicon(cfg)
+    results: dict[str, dict[str, list[Row]]] = {}
+    for name in sets:
+        eval_set, sub_out = cfg.test_sets[name], out / name
+        sub_out.mkdir(parents=True, exist_ok=True)
+        if todo := to_run(selected, sub_out, args.force):
+            manifest = load_config(ROOT / eval_set.manifest, Manifest)
+            utterances = load_test_set(manifest)[: args.limit]
+            if eval_set.channel == "telephone":
+                utterances = [replace(u, audio=telephone(u.audio)) for u in utterances]
+            for key in todo:
+                run_model(key, name, cfg, utterances, manifest, sub_out, lexicon)
+        cached = [m for m in cfg.models if (sub_out / f"{m}.jsonl").exists()]
+        results[name] = {m: rescore(read_jsonl(sub_out / f"{m}.jsonl"), lexicon[0]) for m in cached}
+        print(f"\n{name}\n{render_table(results[name], cfg.reference_model)}")
 
-    cached = [m for m in cfg.models if (out / f"{m}.jsonl").exists()]
-    results = {m: read_jsonl(out / f"{m}.jsonl") for m in cached}
-    table = render_table(results, cfg.reference_model)
-    print(table)
-    if args.limit or len(results) < len(cfg.models):
-        print(f"README not updated: {len(cached)}/{len(cfg.models)} cached, limit={args.limit}")
+    complete = list(results) == list(cfg.test_sets) and all(
+        len(res) == len(cfg.models) for res in results.values()
+    )
+    if args.limit or not complete:
+        print(f"README not updated: needs every model on every test set, limit={args.limit}")
         return
-    n = len(next(iter(results.values())))
+    print(f"\n{summary_table(results)}")
     config = args.config.resolve().relative_to(ROOT)
-    block = readme_block(table, config, n)
+    block = readme_block(results, cfg, config, lexicon[1])
     text = replace_block(README.read_text(encoding="utf-8"), "baselines", block)
     README.write_text(text, encoding="utf-8")
     print(f"updated {README}")
