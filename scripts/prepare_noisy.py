@@ -23,9 +23,11 @@ datasheet read (D-16b). ``--push`` uploads the folder to ``<hf user>/tuncall-<na
 import argparse
 import csv
 import hashlib
+import http.client
 import io
 import json
 import shutil
+import urllib.error
 import urllib.request
 import zipfile
 from collections import Counter
@@ -109,19 +111,52 @@ def deep_confessions(work: Path) -> Iterator[Clip]:
             yield row["chunk_id"], row["audio"]["bytes"], row["transcript_text"]
 
 
+def download(url: str, dest: Path, attempts: int = 30) -> None:
+    """Resume into ``dest.part`` with Range requests until it has the server's full size.
+
+    A plain read can end early without an error when a long transfer drops, which left a
+    truncated 16 GB zip on Colab; the size check catches that, the md5 check the rest."""
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    total: int | None = None
+    for _ in range(attempts):
+        have = tmp.stat().st_size if tmp.exists() else 0
+        if total is not None and have == total:
+            break
+        request = urllib.request.Request(url, headers={"Range": f"bytes={have}-"})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as r, tmp.open("ab") as f:
+                if r.status == 206:
+                    total = int(r.headers["Content-Range"].rsplit("/", 1)[1])
+                else:  # the server ignored Range: start over
+                    total = int(r.headers["Content-Length"])
+                    f.truncate(0)
+                shutil.copyfileobj(r, f, length=16 << 20)
+        except urllib.error.HTTPError as e:
+            if e.code != 416:  # 416: nothing left to send, the .part is complete
+                raise
+            total = have
+        except (OSError, http.client.HTTPException) as e:  # dropped connection: resume
+            print(f"download interrupted at {have / 1e9:.2f} GB ({e}); resuming")
+    if total is None or tmp.stat().st_size != total:
+        raise OSError(f"{url}: download incomplete after {attempts} attempts; rerun to resume")
+    tmp.rename(dest)
+
+
+def md5sum(path: Path) -> str:
+    md5 = hashlib.md5(usedforsecurity=False)
+    with path.open("rb") as f:
+        while chunk := f.read(16 << 20):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+
 def tunswitch_weak(work: Path) -> Iterator[Clip]:
     archive = work / "weakly_labeled_tn.zip"
     if not archive.exists():
-        tmp = archive.with_suffix(".part")
-        with urllib.request.urlopen(TS_URL) as r, tmp.open("wb") as f:
-            shutil.copyfileobj(r, f, length=16 << 20)
-        tmp.rename(archive)
-    md5 = hashlib.md5(usedforsecurity=False)
-    with archive.open("rb") as f:
-        while chunk := f.read(16 << 20):
-            md5.update(chunk)
-    if md5.hexdigest() != TS_MD5:
-        raise ValueError(f"{archive}: md5 {md5.hexdigest()} != {TS_MD5}; delete it and rerun")
+        download(TS_URL, archive)
+    if (got := md5sum(archive)) != TS_MD5:
+        archive.unlink()  # never reuse a bad archive; the next run downloads it again
+        raise ValueError(f"{archive}: md5 {got} != {TS_MD5}; deleted, rerun to download again")
     with zipfile.ZipFile(archive) as z:
         with z.open("weakly_audios/train.csv") as f:
             table = list(csv.DictReader(io.TextIOWrapper(f, encoding="utf-8")))

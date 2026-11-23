@@ -1,11 +1,14 @@
 import io
 import json
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
-from prepare_noisy import card, clean, prepare
+from prepare_noisy import card, clean, download, prepare
 
 from tuncall.data.sources import SOURCES
 
@@ -65,3 +68,54 @@ def test_card_records_upstream_and_counts() -> None:
     assert "231674424efccfd4d3f19b2706bafd52" in text
     assert "| kept | 5 |" in text
     assert "shards" not in text
+
+
+PAYLOAD = bytes(range(256)) * 400  # 100 KB
+
+
+class FlakyRanges(BaseHTTPRequestHandler):
+    """Serves PAYLOAD with Range support; the first response stops halfway, silently."""
+
+    calls = 0
+
+    def do_GET(self) -> None:
+        type(self).calls += 1
+        start = int(self.headers.get("Range", "bytes=0-")[6:].split("-")[0])
+        if start >= len(PAYLOAD):
+            self.send_response(416)
+            self.end_headers()
+            return
+        body = PAYLOAD[start:]
+        self.send_response(206)
+        self.send_header("Content-Range", f"bytes {start}-{len(PAYLOAD) - 1}/{len(PAYLOAD)}")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body[: len(body) // 2] if type(self).calls == 1 else body)
+        self.close_connection = True
+
+    def log_message(self, format: str, *args: object) -> None:
+        pass
+
+
+@pytest.fixture
+def server() -> Iterator[str]:
+    FlakyRanges.calls = 0
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), FlakyRanges)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_address[1]}/f.zip"
+    httpd.shutdown()
+
+
+def test_download_resumes_a_transfer_that_ends_early(server: str, tmp_path: Path) -> None:
+    dest = tmp_path / "f.zip"
+    download(server, dest)
+    assert dest.read_bytes() == PAYLOAD
+    assert not (tmp_path / "f.zip.part").exists()
+    assert FlakyRanges.calls == 2
+
+
+def test_download_finishes_a_complete_part_file(server: str, tmp_path: Path) -> None:
+    (tmp_path / "f.zip.part").write_bytes(PAYLOAD)
+    FlakyRanges.calls = 1  # no short first response this time
+    download(server, tmp_path / "f.zip")
+    assert (tmp_path / "f.zip").read_bytes() == PAYLOAD
