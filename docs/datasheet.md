@@ -29,7 +29,7 @@ derived repos (#39).
 | **SLURP-TN** (`Elyadata/SLURP-TN`) | Task-oriented requests to a voice assistant (e.g. sending a mail) by 55 speakers | CC BY-NC-ND 4.0 | train; its test split is **test-domain** |
 | **Omnilingual ASR, Tunisian** (`facebook/omnilingual-asr-corpus`, config `aeb_Arab` only) | Spontaneous answers to prompts by 20 speakers | CC BY 4.0 | train |
 | **TEDxTN** (mirror `Hediske/tedxtn-tunisian-segmented`) | 108 TEDx talks, segmented, professional transcripts | upstream annotations CC BY-NC-ND 4.0; the mirror's own license not reviewed (P-04a) | train |
-| Deep Confessions (`oddadmix/arabic-audio-collection-tunisian-deep-confessions`) | ~175 h of podcast, AI-assisted transcripts | "other" | Phase 3 ablation only (D-12d), pending #39 |
+| Deep Confessions (`oddadmix/arabic-audio-collection-tunisian-deep-confessions`) | ~175 h of podcast, AI-assisted transcripts, often fully diacritized | "other"; upstream says the original channels keep all rights | Phase 3 ablation only (D-12d); private derived repo `mouaidMrz/tuncall-deep-confessions` (D-12h) |
 | TunSwitch weakly labelled (Zenodo 8370566) | Automatically labelled Tunisian speech | CC BY 4.0 | Phase 3 ablation only (D-12d), pending #39 |
 
 **Per source and split** (one row per exported `<source>-<split>`; "with Latin words" counts
@@ -38,6 +38,7 @@ clips whose raw text has French/English in Latin script, before the lexicon):
 <!-- datasheet-composition:start -->
 | source | split | utterances | hours | mean s | max s | > 30 s | speakers | with Latin words | excluded (D-16e) |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| deep_confessions | train | 37104 | 174.37 | 16.9 | 338.9 | 1225 | not given | 2145 (6%) | 0 |
 | linto | test | 1013 | 1.24 | 4.4 | 15.0 | 0 | not given | 315 (31%) | - |
 | linto | train | 76115 | 81.93 | 3.9 | 41.4 | 1 | not given | 4842 (6%) | 46 |
 | omnilingual | train | 2874 | 21.24 | 26.6 | 41.0 | 84 | 20 | 31 (1%) | 0 |
@@ -47,7 +48,6 @@ clips whose raw text has French/English in Latin script, before the lexicon):
 | tedxtn | test | 842 | 1.24 | 5.3 | 20.2 | 0 | not given | 627 (74%) | - |
 | tedxtn | train | 15322 | 22.11 | 5.2 | 31.5 | 4 | not given | 7879 (51%) | 0 |
 | tedxtn | validation | 731 | 1.13 | 5.6 | 19.9 | 0 | not given | 532 (73%) | - |
-| deep_confessions | - | pending #39 | | | | | | | |
 | tunswitch_weak | - | pending #39 | | | | | | | |
 <!-- datasheet-composition:end -->
 
@@ -102,6 +102,9 @@ rights are as stated by each upstream dataset; this project adds no consent of i
 
 - **No speaker ids** for LinTO, SLURP-TN and TEDxTN, so speaker overlap between their train
   and test splits can't be ruled out (D-13a). Scores may be optimistic for those speakers.
+- **Noisy-label cleaning** (D-12h): Deep Confessions lost 52 of 37,156 clips (44 looping
+  transcripts, 7 over 25 characters per second, 1 empty); its card in the derived repo has
+  the counts. Its transcripts are machine-made and many carry diacritics (D-10c).
 - **Clips over 30 s** (see the table) exceed Whisper's 30 s input window; Phase 3 must drop
   or split them.
 - **Uneven sources:** LinTO is about two thirds of the training audio, and two YouTube
