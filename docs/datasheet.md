@@ -18,8 +18,8 @@ instead of recording its own (D-08v2, ADR 0006).
 
 **Who assembled it?** The tuncall project. Nothing here is newly recorded: each source is a
 public corpus read at a pinned Hub revision by an adapter in `src/tuncall/data/sources/`
-(D-16). The two noisy-label sources (D-12d) will be the only data re-hosted, in private
-derived repos (#39).
+(D-16). The two noisy-label sources (D-12d) are the only data re-hosted, in private
+derived repos (#39, D-12h).
 
 ## Composition
 
@@ -30,7 +30,7 @@ derived repos (#39).
 | **Omnilingual ASR, Tunisian** (`facebook/omnilingual-asr-corpus`, config `aeb_Arab` only) | Spontaneous answers to prompts by 20 speakers | CC BY 4.0 | train |
 | **TEDxTN** (mirror `Hediske/tedxtn-tunisian-segmented`) | 108 TEDx talks, segmented, professional transcripts | upstream annotations CC BY-NC-ND 4.0; the mirror's own license not reviewed (P-04a) | train |
 | Deep Confessions (`oddadmix/arabic-audio-collection-tunisian-deep-confessions`) | ~175 h of podcast, AI-assisted transcripts, often fully diacritized | "other"; upstream says the original channels keep all rights | Phase 3 ablation only (D-12d); private derived repo `mouaidMrz/tuncall-deep-confessions` (D-12h) |
-| TunSwitch weakly labelled (Zenodo 8370566) | Automatically labelled Tunisian speech | CC BY 4.0 | Phase 3 ablation only (D-12d), pending #39 |
+| TunSwitch weakly labelled (Zenodo 8370566) | Automatically labelled Tunisian speech | CC BY 4.0 | Phase 3 ablation only (D-12d); private derived repo `mouaidMrz/tuncall-tunswitch-weak` (D-12h) |
 
 **Per source and split** (one row per exported `<source>-<split>`; "with Latin words" counts
 clips whose raw text has French/English in Latin script, before the lexicon):
@@ -48,7 +48,7 @@ clips whose raw text has French/English in Latin script, before the lexicon):
 | tedxtn | test | 842 | 1.24 | 5.3 | 20.2 | 0 | not given | 627 (74%) | - |
 | tedxtn | train | 15322 | 22.11 | 5.2 | 31.5 | 4 | not given | 7879 (51%) | 0 |
 | tedxtn | validation | 731 | 1.13 | 5.6 | 19.9 | 0 | not given | 532 (73%) | - |
-| tunswitch_weak | - | pending #39 | | | | | | | |
+| tunswitch_weak | train | 121104 | 158.70 | 4.7 | 15.0 | 0 | not given | 0 (0%) | 0 |
 <!-- datasheet-composition:end -->
 
 **What the training mix contains** (train splits only, after the D-16e exclusions):
@@ -105,6 +105,8 @@ rights are as stated by each upstream dataset; this project adds no consent of i
 - **Noisy-label cleaning** (D-12h): Deep Confessions lost 52 of 37,156 clips (44 looping
   transcripts, 7 over 25 characters per second, 1 empty); its card in the derived repo has
   the counts. Its transcripts are machine-made and many carry diacritics (D-10c).
+  TunSwitch weakly labelled lost 3 of 121,107 clips (1 looping, 2 over 25 characters per
+  second). Neither overlaps a test or validation split (`docs/data/dedupe.md`).
 - **Clips over 30 s** (see the table) exceed Whisper's 30 s input window; Phase 3 must drop
   or split them.
 - **Uneven sources:** LinTO is about two thirds of the training audio, and two YouTube
