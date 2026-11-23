@@ -9,9 +9,10 @@ import soundfile as sf
 from pydantic import ValidationError
 
 from tuncall.config import load_config
-from tuncall.data.sources import SOURCES, SPLITS, Record, TrainMix
+from tuncall.data.sources import SOURCES, SPLITS, Record, TrainMix, load_exclusions
 
-MIX = Path(__file__).resolve().parents[1] / "configs" / "data" / "train-mix.yaml"
+ROOT = Path(__file__).resolve().parents[1]
+MIX = ROOT / "configs" / "data" / "train-mix.yaml"
 
 
 def audio(
@@ -158,6 +159,20 @@ def test_train_mix_config_loads() -> None:
     mix = load_config(MIX, TrainMix)
     assert sorted(e.source for e in mix.sources) == sorted(SOURCES)
     assert all(e.weight == 1.0 for e in mix.sources)
+
+
+def test_train_mix_excludes_only_train_clips() -> None:
+    mix = load_config(MIX, TrainMix)
+    assert mix.exclude is not None
+    excluded = load_exclusions(ROOT / mix.exclude)
+    assert excluded
+    assert all(i.split("/")[0] in SOURCES and i.split("/")[1] == "train" for i in excluded)
+
+
+def test_load_exclusions_skips_comments_and_blanks(tmp_path: Path) -> None:
+    path = tmp_path / "exclude.txt"
+    path.write_text("# header\n\nlinto/train/a\n  slurp_tn/train/b \n", encoding="utf-8")
+    assert load_exclusions(path) == {"linto/train/a", "slurp_tn/train/b"}
 
 
 @pytest.mark.parametrize(

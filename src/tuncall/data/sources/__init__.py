@@ -2,6 +2,7 @@
 yields the common ``Record``. Adding a source is one module plus one line here."""
 
 from collections.abc import Callable, Iterator
+from pathlib import Path
 
 from pydantic import Field, field_validator
 
@@ -43,6 +44,14 @@ class TrainMix(StrictModel):
     """The training mix (D-12c, D-16): ``configs/data/train-mix.yaml``."""
 
     sources: list[MixEntry]
+    # Clip ids never trained on (D-16e), one per line; relative to the repo root.
+    exclude: Path | None = None
 
 
-__all__ = ["SOURCES", "SPLITS", "MixEntry", "Record", "TrainMix"]
+def load_exclusions(path: Path) -> frozenset[str]:
+    """Clip ids listed in an exclusion file (blank lines and ``#`` comments ignored)."""
+    lines = (line.strip() for line in path.read_text(encoding="utf-8").splitlines())
+    return frozenset(line for line in lines if line and not line.startswith("#"))
+
+
+__all__ = ["SOURCES", "SPLITS", "MixEntry", "Record", "TrainMix", "load_exclusions"]
