@@ -7,7 +7,14 @@ from pathlib import Path
 from pydantic import Field, field_validator
 
 from tuncall.config import StrictModel
-from tuncall.data.sources import linto, omnilingual, slurp_tn, tedxtn
+from tuncall.data.sources import (
+    deep_confessions,
+    linto,
+    omnilingual,
+    slurp_tn,
+    tedxtn,
+    tunswitch_weak,
+)
 from tuncall.data.sources.common import Record
 
 SOURCES: dict[str, Callable[..., Iterator[Record]]] = {
@@ -15,6 +22,9 @@ SOURCES: dict[str, Callable[..., Iterator[Record]]] = {
     "slurp_tn": slurp_tn.records,
     "omnilingual": omnilingual.records,
     "tedxtn": tedxtn.records,
+    # Noisy-label sources (D-12d): not in the core mix, Phase 3 ablations only.
+    "deep_confessions": deep_confessions.records,
+    "tunswitch_weak": tunswitch_weak.records,
 }
 
 # Every split each source publishes. Only train is trained on (D-12c); the others are
@@ -24,6 +34,8 @@ SPLITS: dict[str, tuple[str, ...]] = {
     "slurp_tn": ("train", "validation", "test"),
     "omnilingual": ("train",),
     "tedxtn": ("train", "validation", "test"),
+    "deep_confessions": ("train",),
+    "tunswitch_weak": ("train",),
 }
 
 

@@ -157,7 +157,8 @@ def test_missing_split_is_refused(source: str, tmp_path: Path) -> None:
 
 def test_train_mix_config_loads() -> None:
     mix = load_config(MIX, TrainMix)
-    assert sorted(e.source for e in mix.sources) == sorted(SOURCES)
+    noisy = {"deep_confessions", "tunswitch_weak"}  # ablations only (D-12d)
+    assert sorted(e.source for e in mix.sources) == sorted(set(SOURCES) - noisy)
     assert all(e.weight == 1.0 for e in mix.sources)
 
 
