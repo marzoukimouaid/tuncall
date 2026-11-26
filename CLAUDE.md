@@ -30,7 +30,7 @@ uv run pytest tests/test_import.py::test_package_imports   # a single test
 uv run pre-commit run --all-files
 ```
 
-CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. A CPU smoke test (tiny train + eval) is postponed to Phase 3 (D-83a); until then the benchmark script's `--limit N` is the local pre-flight.
+CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. `tests/test_asr_train.py` is the CPU smoke test (tiny random Whisper: train, beam eval, checkpoint, resume; D-83b). `--limit N` on the benchmark, `prepare_asr_data.py` and `train_asr.py` is the local pre-flight. peft and accelerate live in the torch extras, because they require torch.
 
 Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`) and blocks files over 500 KB.
 
@@ -54,6 +54,7 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `data/lexicon.py`: `load_lexicon`, `latin_words`, `transliterate` for the D-10a lexicon (`configs/data/lexicon.tsv`); `scripts/latin_words.py` and `scripts/dedupe_report.py` read the text export.
 - `data/telephone.py`: `telephone(audio)` is the deterministic D-25a landline channel (8 kHz, A-law); the benchmark applies it with `channel: telephone`.
 - `asr/transcribe.py`: `load(model_id, revision, device, dtype)` and batched `transcribe(...)` for Whisper models with HF Transformers (D-22a, D-26). Used by `scripts/benchmark_asr.py` (D-15a).
+- `asr/cache.py` + `asr/train.py`: LoRA fine-tuning (D-21b). `scripts/prepare_asr_data.py` decodes the mix once into an int16 cache under `${HF_HOME}/tuncall-cache/` (targets: lexicon + harakat stripped, clips over 30 s dropped; D-21c); `scripts/train_asr.py --config configs/phase3/lora.yaml` trains with `Seq2SeqTrainer` (beam-5 dev, best + latest checkpoint, resumes on rerun). Dev = `configs/data/dev-linto.txt` (from `scripts/linto_dev_holdout.py`) + SLURP-TN/TEDxTN validation (D-17a).
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 

@@ -101,3 +101,14 @@ def test_baseline_config_scores_three_test_sets() -> None:
         "test-domain": ("configs/data/test-domain.yaml", "clean"),
         "telephone": ("configs/data/test-general.yaml", "telephone"),
     }
+
+
+def test_phase3_config_adds_adapter_models_to_the_baselines() -> None:
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_config(root / "configs/phase3/benchmark.yaml", BenchmarkConfig)
+    phase1 = load_config(root / "configs/phase1/baselines.yaml", BenchmarkConfig)
+    assert cfg.readme_block == "phase3" and cfg.test_sets == phase1.test_sets
+    for key, ref in cfg.models.items():
+        base = phase1.models.get(key) or phase1.models["whisper-large-v3-turbo"]
+        assert (ref.id, ref.revision) == (base.id, base.revision)  # same pins, cache reusable
+    assert [k for k, r in cfg.models.items() if r.adapter] == ["turbo-lora-r32"]

@@ -1,6 +1,7 @@
 """Batched Whisper inference with HF Transformers (D-22a, D-26)."""
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -10,12 +11,21 @@ SAMPLE_RATE = 16_000
 
 
 def load(
-    model_id: str, revision: str, device: str = "cuda", dtype: torch.dtype = torch.float16
+    model_id: str,
+    revision: str,
+    device: str = "cuda",
+    dtype: torch.dtype = torch.float16,
+    adapter: Path | None = None,
 ) -> tuple[WhisperForConditionalGeneration, WhisperProcessor]:
-    """Model and processor at a pinned Hub revision, in eval mode on ``device``."""
+    """Model and processor at a pinned Hub revision, in eval mode on ``device``. A LoRA
+    ``adapter`` directory is merged into the base weights, as serving will do."""
     model = WhisperForConditionalGeneration.from_pretrained(
         model_id, revision=revision, dtype=dtype, attn_implementation="sdpa"
     )
+    if adapter is not None:
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
     processor = WhisperProcessor.from_pretrained(model_id, revision=revision)
     # pyright: ignore below: transformers types `to` and `from_pretrained` loosely
     return model.to(device).eval(), processor  # pyright: ignore[reportArgumentType, reportReturnType]

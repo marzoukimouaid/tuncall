@@ -1,0 +1,16 @@
+# Phase 3 ablation table: fine-tuned models next to their base and FarukSTT (D-21a, D-21d).
+# Uses the Phase 1 defaults and reuses their cached predictions under outputs/phase1.
+base: ../phase1/base.yaml
+experiment: phase3-asr
+readme_block: phase3
+models:
+  whisper-large-v3-turbo:
+    id: openai/whisper-large-v3-turbo
+    revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+  farukstt:
+    id: medyas/FarukSTT
+    revision: a0898fa42804fc1ad86bbee147479d3e8a5f2270
+  turbo-lora-r32:  # configs/phase3/lora.yaml, best dev checkpoint (merged, D-21d)
+    id: openai/whisper-large-v3-turbo
+    revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+    adapter: checkpoints/phase3/lora-r32/best

@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 import soundfile as sf
 from huggingface_hub import snapshot_download
 
+from tuncall.data.hub import retrying
 from tuncall.data.testsets import SAMPLE_RATE, Segment, decode_segment
 
 
@@ -29,7 +30,11 @@ def parquet_files(repo: str, revision: str, pattern: str, root: Path | None) -> 
     """Files matching ``pattern`` under ``root``, or in the Hub cache at ``revision``."""
     if root is None:
         root = Path(
-            snapshot_download(repo, repo_type="dataset", revision=revision, allow_patterns=pattern)
+            retrying(
+                lambda: snapshot_download(
+                    repo, repo_type="dataset", revision=revision, allow_patterns=pattern
+                )
+            )
         )
     paths = sorted(root.glob(pattern))
     if not paths:
