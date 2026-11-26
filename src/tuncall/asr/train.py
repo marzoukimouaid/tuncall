@@ -106,6 +106,14 @@ def scorer(processor: WhisperProcessor, lexicon: dict[str, str]) -> Any:
     return compute
 
 
+class IntervalsFromConfig(TrainerCallback):
+    """On resume the trainer restores logging/eval/save intervals from the checkpoint; use the
+    config's instead, so changing them takes effect on the next run (D-21e)."""
+
+    def on_train_begin(self, args: Any, state: Any, control: Any, **_: Any) -> None:
+        state.compute_steps(args, state.max_steps)
+
+
 class TrackerCallback(TrainerCallback):
     """Forwards every numeric trainer log line to MLflow (never blocks, never raises)."""
 
@@ -174,7 +182,7 @@ def train(
             base.dtype,
         ),
         compute_metrics=scorer(processor, lexicon),
-        callbacks=[TrackerCallback(tracker)],
+        callbacks=[IntervalsFromConfig(), TrackerCallback(tracker)],
     )
     resume = any(Path(args.output_dir or "").glob("checkpoint-*"))
     trainer.train(resume_from_checkpoint=resume or None)

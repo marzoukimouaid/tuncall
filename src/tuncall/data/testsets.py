@@ -25,6 +25,7 @@ import soxr
 from huggingface_hub import hf_hub_download
 
 from tuncall.config import StrictModel
+from tuncall.data.hub import retrying
 from tuncall.data.lexicon import load_lexicon, transliterate
 
 SAMPLE_RATE = 16_000
@@ -141,7 +142,11 @@ def fetch(manifest: Manifest, root: Path | None = None) -> dict[str, Path]:
         return {f.path: root / f.path for f in manifest.files}
     return {
         f.path: Path(
-            hf_hub_download(manifest.repo, f.path, repo_type="dataset", revision=manifest.revision)
+            retrying(
+                lambda f=f: hf_hub_download(
+                    manifest.repo, f.path, repo_type="dataset", revision=manifest.revision
+                )
+            )
         )
         for f in manifest.files
     }

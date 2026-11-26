@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -88,7 +89,7 @@ def test_lora_training_smoke_checkpoints_and_resumes(tmp_path: Path, tiny_whispe
     build(records, tmp_path / "train", {})  # pyright: ignore[reportArgumentType]
     build(records[:2], tmp_path / "dev", {})  # pyright: ignore[reportArgumentType]
 
-    def run(max_steps: int) -> dict[str, float]:
+    def run(max_steps: int, interval: int) -> dict[str, float]:
         cfg = TrainConfig.model_validate(
             {
                 "experiment": "smoke",
@@ -114,8 +115,8 @@ def test_lora_training_smoke_checkpoints_and_resumes(tmp_path: Path, tiny_whispe
                     "generation_num_beams": 2,
                     "max_steps": max_steps,
                     "eval_strategy": "steps",
-                    "eval_steps": 2,
-                    "save_steps": 2,
+                    "eval_steps": interval,
+                    "save_steps": interval,
                     "save_total_limit": 2,
                     "load_best_model_at_end": True,
                     "metric_for_best_model": "wer",
@@ -134,8 +135,33 @@ def test_lora_training_smoke_checkpoints_and_resumes(tmp_path: Path, tiny_whispe
         assert any(key == "loss" for key, _, _ in client.metrics)
         return scores
 
-    first = run(2)
+    first = run(2, interval=2)
     assert "eval_wer" in first and (tmp_path / "out/checkpoint-2").is_dir()
-    run(4)  # resumes from checkpoint-2
-    assert (tmp_path / "out/checkpoint-4").is_dir()
+    run(4, interval=1)  # resumes from checkpoint-2; the new interval applies (D-21e)
+    state = json.loads((tmp_path / "out/checkpoint-4/trainer_state.json").read_text())
+    assert {e["step"] for e in state["log_history"] if "eval_wer" in e} == {2, 3, 4}
     assert (tmp_path / "out/best/adapter_config.json").is_file()
+
+
+def test_load_merges_a_saved_adapter(tmp_path: Path, tiny_whisper: Path) -> None:
+    import torch
+    from peft import LoraConfig, get_peft_model
+    from transformers import WhisperForConditionalGeneration
+
+    from tuncall.asr.transcribe import load
+
+    torch.manual_seed(0)
+    base = WhisperForConditionalGeneration.from_pretrained(tiny_whisper)
+    peft = get_peft_model(base, LoraConfig(r=2, target_modules=["q_proj", "fc1"]))
+    for name, p in peft.named_parameters():
+        if "lora_B" in name:  # zero at init; make the adapter change the output
+            torch.nn.init.normal_(p)
+    peft.save_pretrained(str(tmp_path / "adapter"))
+    inputs = {"input_features": torch.randn(1, 80, 60), "decoder_input_ids": torch.tensor([[1]])}
+    with torch.no_grad():
+        expected = peft.eval()(**inputs).logits
+        plain = load(str(tiny_whisper), "main", "cpu", torch.float32)[0](**inputs).logits
+        merged = load(str(tiny_whisper), "main", "cpu", torch.float32, tmp_path / "adapter")[0]
+        assert not hasattr(merged, "peft_config")  # plain Whisper again
+        assert torch.allclose(merged(**inputs).logits, expected, atol=1e-5)
+    assert not torch.allclose(plain, expected, atol=1e-3)

@@ -31,9 +31,9 @@ trainer:  # Seq2SeqTrainingArguments
   per_device_eval_batch_size: 4  # beam 5 fits 8 GB at 4 (D-15g)
   generation_num_beams: 5  # D-26, also during training (D-17a)
   eval_strategy: steps
-  eval_steps: 1000
+  eval_steps: 500
   save_strategy: steps
-  save_steps: 1000
+  save_steps: 500
   save_total_limit: 2  # best + latest (S-01)
   load_best_model_at_end: true
   metric_for_best_model: wer

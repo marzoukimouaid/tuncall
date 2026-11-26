@@ -1,9 +1,10 @@
-"""Zero-shot ASR benchmark: the baseline tables (D-15, D-15a, D-15b, D-15e).
+"""ASR benchmark: the baseline and fine-tuned tables (D-15, D-15a, D-15b, D-15e).
 
 Every model is scored on every configured test set; ``channel: telephone`` passes a test set
 through the D-25a landline simulation. Predictions are cached in ``<out>/<test set>/<model>.jsonl``
 and a cached pair is skipped unless ``--force``. The tables are built from the cached files and
-written into README.md only when every pair is cached and no ``--limit`` is set.
+written into the config's README block only when every pair is cached and no ``--limit`` is set.
+A model with ``adapter:`` is the base model with that local LoRA adapter merged in.
 
     uv run python scripts/benchmark_asr.py --config configs/phase1/baselines.yaml
 """
@@ -37,6 +38,9 @@ README = ROOT / "README.md"
 class ModelRef(StrictModel):
     id: str
     revision: str
+    # Local LoRA adapter dir, merged before decoding; its sha256 goes to MLflow.
+    # shortcut: cached predictions are not keyed by the hash; rerun with --force after retraining.
+    adapter: Path | None = None
 
 
 class EvalSet(StrictModel):
@@ -54,6 +58,7 @@ class BenchmarkConfig(StrictModel):
     num_beams: int
     max_new_tokens: int
     lexicon: Path | None = None  # D-10a lexicon applied when scoring (D-16c)
+    readme_block: str = "baselines"  # README markers the tables are written between
     models: dict[str, ModelRef]
 
 
@@ -232,8 +237,13 @@ def run_model(
 
     ref = cfg.models[key]
     cuda = torch.cuda.is_available()
+    adapter = ROOT / ref.adapter if ref.adapter else None
     model, processor = load(
-        ref.id, ref.revision, "cuda" if cuda else "cpu", torch.float16 if cuda else torch.float32
+        ref.id,
+        ref.revision,
+        "cuda" if cuda else "cpu",
+        torch.float16 if cuda else torch.float32,
+        adapter,
     )
     hyps = transcribe(
         model,
@@ -262,6 +272,9 @@ def run_model(
             "model": key,
             "model_id": ref.id,
             "model_revision": ref.revision,
+            "adapter_sha256": sha256_file(adapter / "adapter_model.safetensors")
+            if adapter
+            else "none",
             "test_set": test_set,
             "utterances": len(rows),
             "lexicon_sha256": lexicon[1],
@@ -321,7 +334,7 @@ def main() -> None:
     print(f"\n{summary_table(results)}")
     config = args.config.resolve().relative_to(ROOT)
     block = readme_block(results, cfg, config, lexicon[1])
-    text = replace_block(README.read_text(encoding="utf-8"), "baselines", block)
+    text = replace_block(README.read_text(encoding="utf-8"), cfg.readme_block, block)
     README.write_text(text, encoding="utf-8")
     print(f"updated {README}")
 
