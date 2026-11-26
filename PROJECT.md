@@ -2,8 +2,8 @@
 
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
-> **Doc version:** v0.29 — 2026-11-22
-> **Status:** Phases 0–1 done; **Phase 2 (domain data) in progress**, plan in D-08v2. Any technology choice not logged in §9 is still OPEN until decided together.
+> **Doc version:** v0.30 — 2026-11-26
+> **Status:** Phases 0–3 done; **Phase 4 (diarization + pipeline) in progress**, plan in ADR 0008 (D-13b, D-23, D-23a, D-55, D-70b). Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
 
@@ -47,7 +47,7 @@ The project has three goals:
 | ASR | WER / CER on **telephone-band test-general** (D-25) | TBD from its baseline in Phase 2 (P-05b) |
 | ASR | WER / CER on the **general** Darija set (test-general) | **WER ≤ 40%, CER ≤ 17%** (set to match FarukSTT, then 38.8% / 16.3%; rescored with the D-10a lexicon (D-16c) it is 37.2% [35.1, 39.7] / 13.2%; it may have seen 3% of these clips, D-12b). **Met** by the first LoRA (2026-11-26): 26.6% [24.8, 28.5] / 10.3% |
 | ASR | Looping utterances on test-general (D-15d) | **≤ 10 of 1013** (base Whisper large-v3-turbo: 61). **Met** by the first LoRA: 1 |
-| Diarization | DER on test calls | TBD in Phase 4, after its baseline |
+| Diarization | DER and cpWER on the frozen **simulated conversations** test set (D-13b), clean and telephone, 2 speakers known | TBD in Phase 4, after its baseline (D-70b) |
 | NLP | Macro-F1 on intent / sentiment; entity-level F1 on NER | TBD in Phase 5, after its baseline vs. a prompted large LLM |
 | System | End-to-end latency per minute of audio; cost per hour of audio | TBD in Phase 6 |
 | Reproducibility | Someone else can reproduce headline numbers from the repo | Yes |
@@ -177,8 +177,8 @@ Every output records **which model version produced it**, so any result can be t
 | **0. Foundations** | Repo, environment, compute, tracking, this doc finalized | All P-xx and core D-xx decisions logged | Done | [M0](https://github.com/marzoukimouaid/tuncall/milestone/1) |
 | **1. Benchmarks first** | Frozen test sets and baseline numbers for existing models | Baseline table in README, reproducible with one command | Done (test-general only, D-13; targets P-05a) | [M1](https://github.com/marzoukimouaid/tuncall/milestone/2) |
 | **2. Domain data** | Multi-source training mix and a frozen task-oriented test set from public Tunisian speech (D-08v2) | Adapters for every source + reviewed transliteration lexicon; dedupe report; test-domain frozen, with SLURP-TN and telephone-band test-general columns in the baseline table; `docs/datasheet.md` (P-10) | Done (2026-11-23; noisy sources as private derived repos, D-12h) | [M2](https://github.com/marzoukimouaid/tuncall/milestone/3) |
-| **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | ~~Ablation table~~ (deferred, P-11); model card draft (`docs/model-card.md`, D-21f) | In progress (first LoRA beats FarukSTT on all three test sets, README "Fine-tuned ASR") | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
-| **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (WER + DER) on test calls | Not started | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
+| **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | ~~Ablation table~~ (deferred, P-11); model card draft (`docs/model-card.md`, D-21f) | Done (2026-11-26, P-12; first LoRA beats FarukSTT on all three test sets, README "Fine-tuned ASR") | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
+| **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (DER + cpWER + WER/CER) on simulated conversations (D-13b, D-70b) | In progress (plan: ADR 0008) | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
 | **5. NLP** | Intent / sentiment / NER / summary | 3-way comparison table; chosen approach shipped | Not started | [M5](https://github.com/marzoukimouaid/tuncall/milestone/6) |
 | **6. Serving & product** | API, job queue, storage, dashboard, demo | Deployed demo; load/latency numbers | Not started | [M6](https://github.com/marzoukimouaid/tuncall/milestone/7) |
 | **7. Knowledge layer** | Search + RAG + analytics | RAG eval (retrieval + faithfulness) | Not started | [M7](https://github.com/marzoukimouaid/tuncall/milestone/8) |
@@ -329,8 +329,8 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | D-20 | Base model candidates to benchmark? | ✅ decided 2026-11-21 → §9 |
 | D-21 | Fine-tuning method? | ✅ decided 2026-11-23 → §9 (D-21a base model, D-21b LoRA) |
 | D-22 | Inference engine? | faster-whisper (CTranslate2) / whisper.cpp / HF Transformers / ONNX / TensorRT. Benchmarks ✅ decided (D-22a: HF Transformers); serving still open |
-| D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split |
-| D-24 | Streaming ASR in v1 or batch only? | |
+| D-23 | Diarization approach? | pyannote / NeMo / WhisperX pipeline / channel split; ✅ decided 2026-11-26 → §9 (D-23, D-23a) |
+| D-24 | Streaming ASR in v1 or batch only? | ✅ decided 2026-11-26 → §9 |
 | D-25 | Telephone-quality (8 kHz) robustness as an explicit goal? | ✅ decided 2026-11-22 → §9 (codec: D-25a) |
 | D-27 | Train the first LoRA (`configs/phase3/lora.yaml`) for more epochs? | Open, deferred 2026-11-26. Dev WER was still falling at the end of epoch 3 (27.4% / CER 11.1% at step 9,033, the best checkpoint), so more epochs may help. Its test WER (2026-11-26): test-general 26.6%, test-domain 31.1%, telephone 35.2%; ΔWER vs FarukSTT −10.6, −7.1 and −5.6 points, every paired 95% CI below 0; telephone CER 15.7% vs FarukSTT's 14.5% (CIs overlap). It can continue from where it stopped: copy `checkpoints/phase3/lora-r32/checkpoint-9033` (adapter + optimizer + scheduler + RNG + trainer state) to a new output dir, point a config that inherits `lora.yaml` at it with a higher `num_train_epochs`, and rerun `scripts/train_asr.py`. The linear schedule is recomputed for the new length, so the learning rate jumps from 0 back to part of its peak (~40% for 5 epochs): record the run as "3 + N epochs, continued", not as an N-epoch run. **Keep `checkpoint-9033`**: it is the only copy with optimizer state (`best/` holds the adapter only) |
 
@@ -359,7 +359,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 | D-52 | Model serving? | Plain FastAPI workers / Triton / Ray Serve / BentoML / vLLM (for LLMs) |
 | D-53 | Primary database? | PostgreSQL / other |
 | D-54 | Auth & multi-tenancy in scope? | |
-| D-55 | Schema format for CallRecord? | Pydantic / JSON Schema / Protobuf |
+| D-55 | Schema format for CallRecord? | Pydantic / JSON Schema / Protobuf; ✅ decided 2026-11-26 → §9 |
 
 ### Interfaces
 | ID | Question | Notes |
@@ -410,7 +410,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 
 Format: `ID | Date | Decision | Reason | Alternatives rejected`
 
-ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md) · [0006 D-08v2 Phase 2 data strategy](docs/adr/0006-phase2-data-strategy.md) · [0007 D-21b LoRA fine-tuning](docs/adr/0007-lora-fine-tuning.md)
+ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md) · [0006 D-08v2 Phase 2 data strategy](docs/adr/0006-phase2-data-strategy.md) · [0007 D-21b LoRA fine-tuning](docs/adr/0007-lora-fine-tuning.md) · [0008 Phase 4 simulated conversations and diarize-first pipeline](docs/adr/0008-phase4-simulated-conversations.md)
 
 | ID | Date | Decision | Reason | Alternatives rejected |
 |---|---|---|---|---|
@@ -544,6 +544,13 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 **Implications of D-87:** ablation sweeps need a small script (e.g. generate configs or loop over overrides), and some duplication between configs is accepted. Keep shared defaults in a base file to limit it.
 
 **Implications of B-04c:** a public model trained partly on a not-yet-public dataset can't be fully reproduced until the dataset is released, so the model card must say so. Model cards must credit every training source as its license requires (e.g. CC BY 4.0 attribution for LinTO), and the license of the starting checkpoint must allow redistribution (Whisper large-v3-turbo is MIT, D-21a). Check both before the first public model.
+| P-12 | 2026-11-26 | **Phase 3 closed:** PR #47 merged (LoRA pipeline, benchmark rows, model card draft); Phase 4 starts from `main` | Exit criteria met under P-11 | Branching Phase 4 off the open PR |
+| D-24 | 2026-11-26 | **Batch only in v1.** Phase 4 builds one function and one script: audio file in, `CallRecord` out. No streaming; the API and job queue stay in Phase 6 | Nothing in Phases 4–5 needs streaming; streaming Whisper is a project of its own | Streaming ASR in v1 |
+| D-13b | 2026-11-26 | **Phase 4 test material = simulated conversations** (amends the Phase 4 exit criterion "test calls"): two-speaker recordings stitched from real TEDxTN clips, with talk = speaker (the clip file names carry the talk title and speaker; one talk has one speaker). Recipe: 2 speakers from different talks; each turn is 1–3 *consecutive* clips of one talk; ~2 min per conversation; pauses 0.2–1.0 s; ~10% of turn changes overlap by up to 0.5 s; fixed seed. **Dev** set from TEDxTN validation (5 talks; used to tune pipeline settings), **frozen test** set from TEDxTN test, ~40 conversations each (numbers adjusted once the test split's talk count is known). Each comes in a clean and a telephone (D-25a) version. What is frozen is a committed manifest TSV (clip, start time, speaker per conversation) plus the pinned TEDxTN revision; audio is rebuilt from code, and its hash is recorded like the other test sets. Results always say "simulated". ADR 0008 | No real Tunisian call audio exists (D-08v2); of the held-out sources only TEDxTN identifies speakers (LinTO, SLURP-TN: no ids; Omnilingual has ids but is in the training mix). Exact reference labels for free. Known bias: DER looks better than on real calls (each speaker keeps their own microphone and room, no backchannels, stage speech not dialogue) | Hand-labelling 5–10 real talk shows or podcasts (hours of owner labelling, unclear licensing; can become a later column); an English public diarization benchmark such as VoxConverse (not Tunisian; can become a later DER-only column); clips without speaker ids (labels could be wrong) |
+| D-23 | 2026-11-26 | **Diarization = pyannote `speaker-diarization-community-1`** (pyannote.audio 4.x), used off the shelf, no fine-tuning in Phase 4. Gated on the Hub: the owner accepts its terms once; it reads `HF_TOKEN`. Headline rows pass `num_speakers=2` (a support call is two people); a second row lets it estimate the count. `pyannote.audio` goes in the `cpu`/`gpu` extras next to peft (it needs torch; torchaudio/torchcodec follow the same CPU/CUDA indexes) | Standard open tool, fits 8 GB VRAM, handles overlap, ships `pyannote.metrics` | NVIDIA NeMo Sortformer (huge dependency, ≤4 speakers); WhisperX (needs the LoRA converted to CTranslate2, breaks D-22a's same-code property) |
+| D-23a | 2026-11-26 | **Diarize first, then transcribe each turn** with `asr.transcribe` (turns over 30 s use Transformers' long-form decoding). **Turn-level times only:** `words[]` is left out of the schema until a later phase needs it | Each text piece belongs to one speaker by construction; fine-tuned Whisper word timestamps are unreliable and no Darija/code-switch aligner exists; nothing in Phase 4 scores word times | Transcribe the whole recording then assign words to speakers by timestamp; forced alignment with an Arabic wav2vec2 model |
+| D-55 | 2026-11-26 | **`CallRecord` is a Pydantic model** in `src/tuncall/record.py`, grown one phase at a time: Phase 4 adds only call info, segments (start, end, speaker, text, model versions) and meta. Speakers are anonymous (`S1`, `S2`, …) with role always `unknown`; agent/customer is revisited in Phase 5 | Pydantic is already used for configs (D-87); no call data exists to learn roles from | JSON Schema; Protobuf; defining every §4 field up front |
+| D-70b | 2026-11-26 | **Phase 4 metrics:** DER (`pyannote.metrics`, 0.25 s collar), **cpWER** (our own few lines over `tuncall.eval`'s normalizer and jiwer: with 2 speakers there are only two matchings) and plain WER/CER, all with D-73 bootstrap CIs. Rows, all with the same pyannote diarization: our LoRA, base Whisper large-v3-turbo, FarukSTT, and an **oracle** row (our LoRA on the true turns) that separates ASR errors from diarization errors; each × clean/telephone × known/estimated speaker count. The §2 targets are set from these numbers. Code: `src/tuncall/data/conversations.py`, `src/tuncall/diarize.py`, `src/tuncall/pipeline.py`, `scripts/build_conversations.py`, `scripts/benchmark_pipeline.py`, `configs/phase4/` | Plain WER ignores who said what; the oracle row shows where errors come from | meeteval (extra dependency for one formula); WER only |
 
 **Effect of D-80v2:** no MinIO and no local MLflow/Postgres containers for tracking. Docker is still used for the serving stack in later phases. Infrastructure skills are shown there (API, Postgres, job queue, monitoring, CI/CD).
 
@@ -578,7 +585,13 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 ## 11. Glossary
 
 - **WER / CER:** word / character error rate (lower is better).
-- **DER:** diarization error rate.
+- **DER:** diarization error rate: the share of speech time given to the wrong speaker, missed, or falsely detected.
+- **cpWER:** concatenated minimum-permutation WER: each speaker's words joined, hypothesis speakers matched to reference speakers in the best way, then WER. Wrong-speaker words count as errors.
+- **Call:** any multi-speaker recording the system processes. The product's unit; its structured output is a CallRecord.
+- **Utterance:** one single-speaker clip, the unit Phases 1–3 scored.
+- **Turn:** a stretch of a call where one speaker talks.
+- **Simulated conversation:** a recording built from utterances of known speakers, used to test the pipeline (D-13b). Never called a "call" in results.
+- **Oracle (row):** a result that uses the true answer for one stage (e.g. true speaker turns) to isolate the errors of the others.
 - **Code-switching:** switching languages within an utterance (Darija ↔ French ↔ English).
 - **Arabizi:** Arabic written in Latin characters and digits (e.g. "3aslema").
 - **LoRA / QLoRA:** parameter-efficient fine-tuning (QLoRA = on a quantized base model).
