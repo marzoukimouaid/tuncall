@@ -9,6 +9,10 @@ owner before implementing it** (working agreement 8b.1).
 `openai/gpt-oss-120b` (Groq) and `gemini-3.5-flash` wherever this plan names them. Arabizi
 conversion sends 25 comments per request.
 
+**Update (D-31c, D-32d, D-32e, 2026-11-27):** Claude Sonnet wrote the Phase 5 data, and there
+is **no prompted-LLM row** any more: Phase 5 compares the encoder and the Qwen3 4B LoRA only.
+Step 2 is now the JSON output parsers, the metrics with CIs and the role inputs.
+
 ## Goal and exit criterion
 
 Add intent, entities, sentiment and speaker roles to the pipeline, and publish a
