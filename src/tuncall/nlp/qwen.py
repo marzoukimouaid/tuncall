@@ -6,6 +6,7 @@ on the answer tokens only. Role training uses every call twice, as written and l
 so the model cannot learn "S1 is the agent". Decoding is greedy.
 """
 
+import json
 import shutil
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,7 @@ INSTRUCTIONS = {
         'Reply with JSON only: {{"S1": "<role>", "S2": "<role>"}}'
     ),
 }
+LABELS = "labels.json"  # next to each adapter: the label list its prompt names
 MAX_NEW_TOKENS = {"intent": 32, "entities": 256, "sentiment": 16, "role": 32}
 
 
@@ -59,10 +61,9 @@ def chat(
     task: str, labels: list[str], ex: Example, shuffle_seed: int | None = None
 ) -> tuple[list[dict[str, str]], str, Any]:
     """(messages, gold answer JSON, gold) for one example; role gold is {speaker: role}."""
-    system = INSTRUCTIONS[task].format(labels=", ".join(labels))
     if task == "role":
         turns, gold = call_turns(ex.call, shuffle_seed)
-        text = "\n".join(f"{s}: {t}" for s, t in turns)
+        text = role_text(turns)
         answer = dumps(dict(sorted(gold.items())))
     elif task == "entities":
         text, gold = ex.text, ex.gold
@@ -70,8 +71,17 @@ def chat(
     else:
         text, gold = ex.text, ex.gold
         answer = dumps({task: gold})
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": text}]
-    return messages, answer, gold
+    return messages(task, labels, text), answer, gold
+
+
+def role_text(turns: list[tuple[str, str]]) -> str:
+    return "\n".join(f"{s}: {t}" for s, t in turns)
+
+
+def messages(task: str, labels: list[str], text: str) -> list[dict[str, str]]:
+    """The prompt: the task instruction with its label list, then the input."""
+    system = INSTRUCTIONS[task].format(labels=", ".join(labels))
+    return [{"role": "system", "content": system}, {"role": "user", "content": text}]
 
 
 class ChatCollator:
@@ -165,6 +175,7 @@ def train_qwen(
     )
     trainer.train(resume_from_checkpoint=any(out.glob("checkpoint-*")) or None)
     trainer.save_model(str(out / "final"))
+    (out / "final" / LABELS).write_text(json.dumps(labels) + "\n", encoding="utf-8")
     for ckpt in out.glob("checkpoint-*"):  # optimizer state; the run is finished
         shutil.rmtree(ckpt)
     return model, tok

@@ -1,4 +1,4 @@
-"""Run the Phase 4 pipeline on audio files: one CallRecord JSON per file (D-24).
+"""Run the pipeline on audio files: one CallRecord JSON per file (D-24, D-55a).
 
 uv run python scripts/run_pipeline.py call.wav [more.wav ...] --out outputs/records
 """
@@ -13,7 +13,7 @@ from tuncall.pipeline import PipelineConfig, load_models, run_file
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("audio", type=Path, nargs="+")
-    parser.add_argument("--config", type=Path, default=Path("configs/phase4/pipeline.yaml"))
+    parser.add_argument("--config", type=Path, default=Path("configs/phase5/pipeline.yaml"))
     parser.add_argument("--out", type=Path, help="directory for <name>.json (default: stdout)")
     args = parser.parse_args()
 

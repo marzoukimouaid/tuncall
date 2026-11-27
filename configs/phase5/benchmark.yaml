@@ -1,0 +1,44 @@
+# Phase 5 benchmark (D-70d, D-55a): the kept encoder per task vs the Qwen3 4B LoRA, on
+# validation (--set dev) or test (--set test, once). Read by scripts/benchmark_nlp.py.
+data:
+  lexicon: configs/data/lexicon.tsv
+  slurp_revision: a5c2ec062fa91b5a51b7c914859eb1e6525a6f5d  # same pin as train-mix.yaml
+  calls: configs/data/synthetic-calls.yaml
+shuffle_seed: 0  # role: the line-shuffled input, as in training (D-70d)
+asr_transcripts: outputs/phase1/test-domain/turbo-lora-r32.jsonl  # LoRA ASR on SLURP-TN test
+qwen_config: configs/phase5/qwen.yaml
+contenders:
+  encoder:  # the better encoder per task on validation (scripts/train_nlp.py)
+    intent:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/intent/best
+    entities:
+      kind: encoder
+      base: {id: CAMeL-Lab/bert-base-arabic-camelbert-da, revision: 231698eab9ebf0ae7b518a64277b81b2fe829f2d}
+      path: checkpoints/phase5/encoder/camelbert-da/entities/best
+    sentiment:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/sentiment/best
+    role:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/role/best
+  qwen3-4b-lora:
+    intent:
+      kind: qwen
+      base: {id: Qwen/Qwen3-4B-Instruct-2507, revision: cdbee75f17c01a7cc42f958dc650907174af0554}
+      path: checkpoints/phase5/qwen/intent/final
+    entities:
+      kind: qwen
+      base: {id: Qwen/Qwen3-4B-Instruct-2507, revision: cdbee75f17c01a7cc42f958dc650907174af0554}
+      path: checkpoints/phase5/qwen/entities/final
+    sentiment:
+      kind: qwen
+      base: {id: Qwen/Qwen3-4B-Instruct-2507, revision: cdbee75f17c01a7cc42f958dc650907174af0554}
+      path: checkpoints/phase5/qwen/sentiment/final
+    role:
+      kind: qwen
+      base: {id: Qwen/Qwen3-4B-Instruct-2507, revision: cdbee75f17c01a7cc42f958dc650907174af0554}
+      path: checkpoints/phase5/qwen/role/final

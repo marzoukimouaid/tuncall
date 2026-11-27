@@ -102,6 +102,22 @@ def test_encoder_trains_and_resumes(tiny_bert: Path, tmp_path: Path, task: str) 
         cfg.trainer["num_train_epochs"] = 2  # resumes from the epoch-1 checkpoint
         train_encoder(cfg, "tiny", task, labels, data, data, tracker)
 
+    from tuncall.nlp.predict import Encoder, parameters
+
+    encoder = Encoder(task, tmp_path / "tiny" / task / "best", "cpu", batch_size=3)
+    if task == "role":
+        out = encoder([[("S1", "مرحبا"), ("S2", "عندي مشكل")], []])
+        assert set(out[0]) == {"S1", "S2"} and out[1] == {}
+        assert set(out[0].values()) <= {"agent", "customer"}
+    else:
+        out = encoder([ex.text for ex in data])
+        assert len(out) == len(data)
+        if task == "intent":
+            assert set(out) <= {"a", "b"}
+        else:
+            assert all(isinstance(p, tuple) for p in out)
+    assert parameters(encoder) > 0
+
 
 def test_qwen_lora_trains_and_generates(tmp_path: Path) -> None:
     from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -142,3 +158,14 @@ def test_qwen_lora_trains_and_generates(tmp_path: Path) -> None:
     replies = generate(model, tok, prompts, max_new_tokens=4, batch=2)
     assert len(replies) == 3 and all(isinstance(r, str) for r in replies)
     assert (tmp_path / "out/role/final").is_dir()
+
+    import yaml
+
+    from tuncall.nlp.predict import Qwen, QwenTask, parameters
+
+    path = tmp_path / "qwen.yaml"
+    path.write_text(yaml.safe_dump(cfg.model_dump(mode="json")), encoding="utf-8")
+    qwen = Qwen(path, {"role": tmp_path / "out/role/final"}, "cpu")
+    out = qwen.predict("role", [[("S1", "مرحبا"), ("S2", "عندي مشكل")]])
+    assert set(out[0]) == {"S1", "S2"}  # values: a role or None (invalid reply)
+    assert parameters(QwenTask(qwen, "role")) > 0

@@ -1,12 +1,14 @@
 """Batch pipeline: an audio file in, a ``CallRecord`` out (D-24, D-23a, ADR 0008).
 
 Diarize first, then transcribe each turn with ``asr.transcribe`` (turns over 30 s use
-long-form decoding). Batch only; the API and job queue are Phase 6.
+long-form decoding), then, if the config names NLP models, tag each turn with its intent,
+entities and sentiment and each speaker with a role (D-55a). Batch only; the API and job
+queue are Phase 6.
 """
 
 import time
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,7 @@ import soundfile as sf
 import torch
 
 from tuncall.asr import ModelRef
+from tuncall.asr.cache import target_text
 from tuncall.asr.transcribe import load, transcribe
 from tuncall.config import StrictModel
 from tuncall.data.lexicon import load_lexicon, transliterate
@@ -23,9 +26,15 @@ from tuncall.data.testsets import REPO_ROOT, SAMPLE_RATE, Segment, decode_segmen
 from tuncall.diarize import MODEL, Diarization, Span, diarize
 from tuncall.diarize import load as load_diarizer
 from tuncall.eval.normalize import normalize_arabic
-from tuncall.record import CallRecord, Meta
+from tuncall.nlp.predict import NlpModel, load_predictors
+from tuncall.record import CallRecord, Entity, Meta
 from tuncall.record import Segment as RecordSegment
 from tuncall.tracking import git_commit
+
+
+class NlpSettings(StrictModel):
+    tasks: dict[str, NlpModel]  # the shipped model per task (D-55a)
+    qwen_config: Path | None = None  # the training config of the Qwen adapters, if any ships
 
 
 class PipelineConfig(StrictModel):
@@ -38,6 +47,7 @@ class PipelineConfig(StrictModel):
     task: str = "transcribe"
     num_beams: int = 5
     max_new_tokens: int = 440
+    nlp: NlpSettings | None = None  # Phase 5; None leaves the NLP fields empty
 
 
 @dataclass
@@ -49,6 +59,7 @@ class Models:
     whisper: Any
     processor: Any
     lexicon: dict[str, str]
+    nlp: Mapping[str, Callable[[list[Any]], list[Any]]] = field(default_factory=dict)  # by task
 
     @property
     def asr_version(self) -> str:
@@ -73,6 +84,7 @@ def load_models(cfg: PipelineConfig) -> Models:
         whisper,
         processor,
         load_lexicon(REPO_ROOT / cfg.lexicon),
+        load_predictors(cfg.nlp.tasks, cfg.nlp.qwen_config, device) if cfg.nlp else {},
     )
 
 
@@ -127,6 +139,36 @@ def build_record(
     )
 
 
+def annotate(models: Models, record: CallRecord) -> CallRecord:
+    """Fill the Phase 5 fields from the shipped NLP models (D-55a).
+
+    Each turn's text goes in the training convention (``target_text``, D-34a); the role model
+    sees the whole call, and a speaker it gives no role keeps ``unknown``.
+    """
+    segs, nlp = record.segments, models.nlp
+    texts = [target_text(s.text_raw, models.lexicon) for s in segs]
+    fields: list[dict[str, Any]] = [{} for _ in segs]
+    for task in ("intent", "sentiment"):
+        if task in nlp:
+            for f, label in zip(fields, nlp[task](texts), strict=True):
+                f[task] = label
+    if "entities" in nlp:
+        for f, pairs in zip(fields, nlp["entities"](texts), strict=True):
+            f["entities"] = [Entity(type=t, value=v) for t, v in pairs]
+    if "role" in nlp and segs:
+        roles = nlp["role"]([[(s.speaker, t) for s, t in zip(segs, texts, strict=True)]])[0]
+        for f, s in zip(fields, segs, strict=True):
+            f["role"] = roles.get(s.speaker) or "unknown"
+    assert models.cfg.nlp is not None
+    versions = {t: models.cfg.nlp.tasks[t].version for t in nlp}
+    return record.model_copy(
+        update={
+            "segments": [s.model_copy(update=f) for s, f in zip(segs, fields, strict=True)],
+            "meta": record.meta.model_copy(update={"nlp_model_versions": versions}),
+        }
+    )
+
+
 def timed(fn: Callable[[], Any]) -> tuple[Any, float]:
     t0 = time.perf_counter()
     out = fn()
@@ -156,6 +198,9 @@ def process(
         channels=channels,
         processing_ms={"diarize": diarize_ms, "asr": asr_ms},
     )
+    if models.nlp:
+        record, nlp_ms = timed(lambda: annotate(models, record))
+        record.meta.processing_ms_by_stage["nlp"] = nlp_ms
     return record, diarization
 
 

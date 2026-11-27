@@ -21,37 +21,11 @@ from tuncall.config import load_config
 from tuncall.data.lexicon import load_lexicon
 from tuncall.data.testsets import REPO_ROOT, sha256_file
 from tuncall.nlp.data import ROLES, call_turns
-from tuncall.nlp.metrics import (
-    Score,
-    classification,
-    entity_f1,
-    parse_entities,
-    parse_label,
-    parse_roles,
-)
-from tuncall.nlp.tasks import TASKS, Example, label_set, load_task
+from tuncall.nlp.metrics import Score, parse_entities, parse_label, parse_roles
+from tuncall.nlp.tasks import TASKS, label_set, load_task, role_gold, scores
 from tuncall.tracking import Tracker
 
 OUT = REPO_ROOT / "outputs/phase5/validation"
-
-
-def role_gold(val: list[Example], seed: int | None) -> dict[tuple[str, str], str]:
-    return {(ex.call.id, s): r for ex in val for s, r in call_turns(ex.call, seed)[1].items()}
-
-
-def scores(task: str, val: list[Example], preds: list[Any]) -> dict[str, Score]:
-    """Validation scores; role ``preds`` is one {(call, speaker): role} dict per input order."""
-    if task == "entities":
-        return {"f1": entity_f1([ex.gold for ex in val], preds)}
-    if task == "role":
-        out = {}
-        for name, (gold, pred) in zip(("accuracy", "accuracy_shuffled"), preds, strict=True):
-            keys = sorted(gold)
-            out[name] = classification([gold[k] for k in keys], [pred.get(k) for k in keys])[
-                "accuracy"
-            ]
-        return out
-    return classification([ex.gold for ex in val], preds)
 
 
 def run_encoder(cfg: Any, name: str, task: str, data: tuple, tracker: Tracker) -> dict[str, Score]:

@@ -1,0 +1,23 @@
+# Phase 5 batch pipeline: the Phase 4 pipeline plus the shipped NLP model per task (D-55a):
+# the local contender with the best validation score, the faster one if within 1 point
+# (scripts/benchmark_nlp.py --set dev prints the choice).
+base: ../phase4/pipeline.yaml
+nlp:
+  qwen_config: configs/phase5/qwen.yaml
+  tasks:
+    intent:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/intent/best
+    entities:
+      kind: encoder
+      base: {id: CAMeL-Lab/bert-base-arabic-camelbert-da, revision: 231698eab9ebf0ae7b518a64277b81b2fe829f2d}
+      path: checkpoints/phase5/encoder/camelbert-da/entities/best
+    sentiment:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/sentiment/best
+    role:
+      kind: encoder
+      base: {id: UBC-NLP/MARBERTv2, revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066}
+      path: checkpoints/phase5/encoder/marbertv2/role/best

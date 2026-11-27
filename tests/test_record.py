@@ -35,9 +35,9 @@ def test_round_trips_through_json() -> None:
 
 @pytest.mark.parametrize(
     "segment_patch",
-    [{"speaker": "agent"}, {"role": "customer"}, {"words": []}, {"start": -1.0}],
+    [{"speaker": "agent"}, {"role": "boss"}, {"words": []}, {"start": -1.0}, {"sentiment": "meh"}],
 )
-def test_rejects_fields_outside_phase4(segment_patch: dict[str, object]) -> None:
+def test_rejects_fields_outside_phase5(segment_patch: dict[str, object]) -> None:
     bad = {**RECORD, "segments": [{**RECORD["segments"][0], **segment_patch}]}  # type: ignore[dict-item]
     with pytest.raises(ValidationError):
         CallRecord.model_validate(bad)
