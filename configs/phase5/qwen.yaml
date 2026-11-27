@@ -1,0 +1,34 @@
+# Phase 5 small LLM (D-32a, D-32f): Qwen3 4B Instruct, 4-bit, one LoRA adapter per task.
+# Read by scripts/train_nlp.py.
+experiment: phase5-nlp
+data:
+  lexicon: configs/data/lexicon.tsv
+  slurp_revision: a5c2ec062fa91b5a51b7c914859eb1e6525a6f5d  # same pin as train-mix.yaml
+  calls: configs/data/synthetic-calls.yaml
+base_model:  # pinned 2026-11-27
+  id: Qwen/Qwen3-4B-Instruct-2507
+  revision: cdbee75f17c01a7cc42f958dc650907174af0554
+quantize_4bit: true
+max_length: 1536  # prompt + answer tokens; a 20-line call fits
+shuffle_seed: 0
+lora:  # standard settings, no search (D-32f)
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+output_root: checkpoints/phase5/qwen
+eval_batch_size: 16
+trainer:
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4  # effective batch 16
+  learning_rate: 2.0e-4
+  warmup_steps: 0.03  # a float under 1 is a ratio of all steps
+  lr_scheduler_type: cosine
+  num_train_epochs: 3
+  save_strategy: epoch
+  save_total_limit: 2
+  bf16: true
+  activation_checkpointing: true
+  activation_checkpointing_kwargs: {use_reentrant: false}
+  logging_steps: 10
+  seed: 0
