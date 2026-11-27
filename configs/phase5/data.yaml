@@ -1,0 +1,15 @@
+# Phase 5 data generation (D-31a, D-32c). Read by scripts/transliterate_tsac.py and
+# scripts/make_synthetic_calls.py; every reply is cached under cache_dir.
+provider: gemini
+model: gemini-3.5-flash
+cache_dir: outputs/phase5/llm-cache
+seed: 0
+tsac:
+  validation_fraction: 0.1  # of each sentiment in TSAC train, after dropping test copies
+  batch_size: 25  # Arabizi comments per request (D-32c)
+calls:
+  count: 200
+  min_lines: 6
+  max_lines: 20
+  max_attempts: 3  # requests per call before giving up on it
+  splits: {train: 100, validation: 30, test: 70}
