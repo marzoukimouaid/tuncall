@@ -11,6 +11,7 @@ Milliseconds per input are measured on this machine after a warm-up (role: per c
 """
 
 import argparse
+import gc
 import json
 import time
 from pathlib import Path
@@ -135,14 +136,14 @@ def tables(results: dict[str, dict[str, Any]]) -> str:
         )
     lines += [
         "",
-        "| Model | ms per input: intent / entities / sentiment / role (per call) | Parameters "
-        "(M) | Cost |",
+        "| Model | ms per input: intent / entities / sentiment / role (per call) "
+        "| Parameters (M), same order | Cost |",
         "|---|---|---|---|",
     ]
     for name, r in results.items():
         ms = " / ".join(f"{r[t]['ms_per_input']:.1f}" for t in TASKS)
-        params = sorted({round(r[t]["parameters"] / 1e6) for t in TASKS})
-        lines.append(f"| {name} | {ms} | {' / '.join(map(str, params))} | $0 (local) |")
+        params = " / ".join(str(round(r[t]["parameters"] / 1e6)) for t in TASKS)
+        lines.append(f"| {name} | {ms} | {params} | $0 (local) |")
     return "\n".join(lines)
 
 
@@ -213,6 +214,7 @@ def main() -> None:
                     step=0,
                 )
         del predictors
+        gc.collect()  # peft/bitsandbytes hold reference cycles
         torch.cuda.empty_cache()
     OUT.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")

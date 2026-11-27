@@ -147,6 +147,7 @@ def train_qwen(
     model, tok = load_base(cfg, base_path)
     out = cfg.output_root / task
     if (out / "final").is_dir():  # trained earlier; only scoring was left
+        (out / "final" / LABELS).write_text(json.dumps(labels) + "\n", encoding="utf-8")
         return PeftModel.from_pretrained(model, str(out / "final")), tok
     if cfg.quantize_4bit:
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=False)

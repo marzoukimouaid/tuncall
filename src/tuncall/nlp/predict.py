@@ -103,6 +103,7 @@ class Qwen:
         from tuncall.nlp.qwen import LABELS, QwenConfig, load_base
 
         self.cfg = load_config(REPO_ROOT / config, QwenConfig)
+        self.base_model = self.cfg.base_model
         base, self.tok = load_base(self.cfg)
         if not self.cfg.quantize_4bit:  # 4-bit weights are placed on the GPU when loaded
             base = base.to(device)
@@ -165,6 +166,9 @@ def load_predictors(
         if qwen_config is None:
             raise ValueError("a Qwen task needs qwen_config")
         qwen = Qwen(qwen_config, adapters, device)
+        for task in adapters:  # nlp_model_versions must name the base the adapters run on
+            if models[task].base != qwen.base_model:
+                raise ValueError(f"{task}: base {models[task].base} != {qwen.base_model}")
         out |= {task: QwenTask(qwen, task) for task in adapters}
     for task, m in models.items():
         if m.kind == "encoder":

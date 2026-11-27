@@ -50,7 +50,16 @@ PR yet; will close #59).
       `uv run python scripts/train_nlp.py --config configs/phase5/qwen.yaml --limit 20`
   - Then delete `checkpoints/phase5/qwen/limit-20` and `outputs/phase5/validation/*-limit-20.json`,
     and run the full training without `--limit` (estimated 1.5–2 h on the RTX 4070).
-- **Step 4 (#60):** not started.
+- **Step 4 (#60):** code done (D-55b), commit `26b86b8` on `feat/phase5-pipeline` (stacked on
+  `feat/phase5-training`, not pushed):
+  - `nlp/predict.py`, `scripts/benchmark_nlp.py`, the `CallRecord` NLP fields,
+    `pipeline.annotate`, and `configs/phase5/{benchmark,pipeline}.yaml`.
+  - Encoder dev benchmark: the scores match training validation, at 0.2–2.2 ms per input.
+  - `run_pipeline.py` was checked end to end on one simulated conversation (NLP stage 117 ms).
+  - Overnight run (2026-11-27, owner asleep, D-55b): download → pre-flight → full Qwen
+    training → Qwen dev benchmark. Logs are in `outputs/phase5/logs/`.
+  - Left: the shipping choice per task in `configs/phase5/pipeline.yaml`, the one-time test
+    run (README `phase5` block), the model card section, the §2 NLP targets and §5 status.
 
 Working rules learned this session (owner):
 - Before any download, state the destination, the size and the estimated time, and ask.
