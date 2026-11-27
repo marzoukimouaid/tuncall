@@ -13,6 +13,58 @@ conversion sends 25 comments per request.
 is **no prompted-LLM row** any more: Phase 5 compares the encoder and the Qwen3 4B LoRA only.
 Step 2 is now the JSON output parsers, the metrics with CIs and the role inputs.
 
+## Status and handoff (2026-11-27, end of session)
+
+Branches, stacked: `docs/phase5-plan` (PR #61) → `feat/phase5-data` (PR #62, closes #57) →
+`feat/phase5-metrics` (PR #63, closes #58) → `feat/phase5-training` (local, **not pushed**, no
+PR yet; will close #59).
+
+- **Step 1 (data):** done and frozen (D-31b, D-31c).
+- **Step 2:** done. No prompted-LLM row (D-32e); step 2 became the JSON parsers, the
+  metrics with CIs and the role inputs (`nlp/metrics.py`, `nlp.data.call_turns`).
+- **Step 3, encoders:** done (D-32f; TunBERT dropped). `scripts/train_nlp.py --config
+  configs/phase5/encoder.yaml` ran in 12 min. Validation, with the encoder kept per task:
+
+  | Task | Kept | Score [95% CI] | Other encoder |
+  |---|---|---|---|
+  | Intent | MARBERTv2 | macro-F1 0.525 [0.50, 0.65], acc 0.795 | CAMeLBERT-DA 0.523 |
+  | Entities | CAMeLBERT-DA | pair F1 0.626 [0.59, 0.67] | MARBERTv2 0.547 |
+  | Sentiment | MARBERTv2 | macro-F1 0.980 [0.97, 0.99] | CAMeLBERT-DA 0.965 |
+  | Role | MARBERTv2 | accuracy 1.00 plain and shuffled | CAMeLBERT-DA 1.00 |
+
+  - Models: `checkpoints/phase5/encoder/<model>/<task>/best` (2.3 GB).
+  - Scores: `outputs/phase5/validation/*.json`.
+  - Caveats for the write-up:
+    - Sentiment 0.98 may be inflated: TSAC has near-duplicate comments, and the dedup
+      catches exact matches only.
+    - Role 1.00 means the synthetic calls make roles easy.
+    - Only 54 of 2,471 train entity values (2%) are not found as words in their sentence.
+- **Step 3, Qwen3 4B LoRA:** code written and smoke-tested on CPU, never run on the GPU.
+  - The owner stopped the base-model download because it saturated the home internet:
+    ~1.7 GB of ~8.05 GB is in `$HF_HOME/hub/models--Qwen--Qwen3-4B-Instruct-2507`.
+  - Hugging Face resumes the `.incomplete` files, so nothing is lost.
+  - To resume, at a time the connection can be saturated (the owner's choice), either:
+    - pre-download only:
+      `uv run hf download Qwen/Qwen3-4B-Instruct-2507 --revision cdbee75f17c01a7cc42f958dc650907174af0554`
+    - or run the pre-flight directly:
+      `uv run python scripts/train_nlp.py --config configs/phase5/qwen.yaml --limit 20`
+  - Then delete `checkpoints/phase5/qwen/limit-20` and `outputs/phase5/validation/*-limit-20.json`,
+    and run the full training without `--limit` (estimated 1.5–2 h on the RTX 4070).
+- **Step 4 (#60):** not started.
+
+Working rules learned this session (owner):
+- Before any download, state the destination, the size and the estimated time, and ask.
+  Before any long run, state the estimated duration and ask.
+- Disk is tight: the Linux `/` has ~4.6 GB free, and the Windows partition (`HF_HOME`) has
+  ~14 GB free before the Qwen download (~7 GB after).
+  - Encoder checkpoints are model-only (`save_only_model`), so a stopped encoder task restarts.
+  - The losing encoder per task is deleted.
+  - Qwen keeps full checkpoints and resumes, and reuses `final/` if only scoring is left.
+- Load `.env` before every run (`set -a; . ./.env; set +a`): `HF_HOME` lives only there.
+- Claude can't open PRs here (the auto-mode classifier blocks `gh pr create`), and the OMC
+  autopilot git guardrail blocks `git push`. Give the owner the commands, run from
+  `~/Documents/tuncall`.
+
 ## Goal and exit criterion
 
 Add intent, entities, sentiment and speaker roles to the pipeline, and publish a
