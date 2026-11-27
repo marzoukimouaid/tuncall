@@ -3,7 +3,7 @@
 > **Codename:** `tuncall` (placeholder — P-01)
 > **Owner:** Mouaid Marzouki
 > **Doc version:** v0.33 — 2026-11-27
-> **Status:** Phases 0–4 done (Phase 4: diarized pipeline + benchmark, ADR 0008, P-13); Phase 5 (NLP) planned (ADR 0009, `docs/phase5-plan.md`), step 1 (data) in progress. Any technology choice not logged in §9 is still OPEN until decided together.
+> **Status:** Phases 0–4 done (Phase 4: diarized pipeline + benchmark, ADR 0008, P-13); Phase 5 (NLP) planned (ADR 0009, `docs/phase5-plan.md`), step 1 (data) done and frozen, step 2 (prompted rows, Groq) next. Any technology choice not logged in §9 is still OPEN until decided together.
 
 This file is the single reference for the project. Every decision made gets written into the Decision Log (§9) with the date and reason. If code and this document disagree, update one so they match. Don't leave them drifting apart.
 
