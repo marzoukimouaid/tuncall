@@ -3,7 +3,7 @@
 Each call gets a domain (telecom, bank, e-commerce, in turn), a scenario and a line count
 drawn with the config's seed, and one request. A reply that is not valid JSON, has a role
 other than agent/customer, lacks one of the two roles, has a line count outside the range or
-a line not in Arabic script is asked again (up to ``max_attempts``). Replies are cached, so a
+a line with Latin letters is asked again (up to ``max_attempts``). Replies are cached, so a
 run stopped by the daily quota resumes. When all calls exist, writes
 configs/data/synthetic-calls.jsonl, the split in configs/data/synthetic-calls.yaml (with
 sha256), and 20 calls for the owner's spot-check to outputs/phase5/.
@@ -12,6 +12,7 @@ sha256), and 20 calls for the owner's spot-check to outputs/phase5/.
 """
 
 import argparse
+import json
 import random
 import sys
 from pathlib import Path
@@ -20,7 +21,16 @@ import yaml
 
 from tuncall.config import load_config
 from tuncall.data.testsets import REPO_ROOT, sha256_file
-from tuncall.nlp.data import ROLES, Call, CallLine, CallSet, DataGen, file_sha256, is_arabic
+from tuncall.nlp.data import (
+    ROLES,
+    Call,
+    CallLine,
+    CallSet,
+    CallsGen,
+    DataGen,
+    dumps,
+    file_sha256,
+)
 from tuncall.nlp.llm import LLM, QuotaExhausted, parse_json
 
 CALLS = REPO_ROOT / "configs/data/synthetic-calls.jsonl"
@@ -76,30 +86,47 @@ def valid(reply: object, lo: int, hi: int) -> list[CallLine] | None:
         return None
     lines = [CallLine(role=x.role, text=" ".join(x.text.split())) for x in lines]
     ok = lo <= len(lines) <= hi and {x.role for x in lines} == set(ROLES)
-    return lines if ok and all(x.text and is_arabic(x.text) for x in lines) else None
+    # A line may be only digits (a phone number) but never holds Latin letters (D-10).
+    latin = any(c.isascii() and c.isalpha() for x in lines for c in x.text)
+    return lines if ok and not latin and all(x.text for x in lines) else None
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=REPO_ROOT / "configs/phase5/data.yaml")
-    parser.add_argument("--limit", type=int, help="write only the first N calls")
-    args = parser.parse_args()
-    cfg = load_config(args.config, DataGen)
+def prompts(plans: list[tuple[str, str, int]]) -> list[str]:
+    return [PROMPT.format(domain=d, scenario=s, lines=n) for d, s, n in plans]
+
+
+def from_files(folder: Path, plans: list[tuple[str, str, int]], gen: CallsGen) -> list[Call]:
+    """Write the prompts to ``folder/calls-todo.jsonl``; read replies from ``calls-*.out.jsonl``.
+
+    Each reply line is ``{"id": "call-NNN", "lines": [...]}``; invalid ones are reported.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    todo = [{"id": f"call-{n:03d}", "prompt": p} for n, p in enumerate(prompts(plans))]
+    (folder / "calls-todo.jsonl").write_text(
+        "".join(dumps(t) + "\n" for t in todo), encoding="utf-8"
+    )
+    replies = {}
+    for path in sorted(folder.glob("calls-*.out.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            replies[row["id"]] = row
+    calls = []
+    for n, (domain, scenario, _) in enumerate(plans):
+        cid = f"call-{n:03d}"
+        if lines := valid(replies.get(cid), gen.min_lines, gen.max_lines):
+            calls.append(Call(id=cid, domain=domain, scenario=scenario, lines=lines))
+        else:
+            print(f"{cid}: missing or invalid reply", file=sys.stderr)
+    return calls
+
+
+def from_api(cfg: DataGen, plans: list[tuple[str, str, int]]) -> list[Call]:
     gen = cfg.calls
     llm = LLM(cfg.provider, cfg.model, REPO_ROOT / cfg.cache_dir)
-
-    rng = random.Random(cfg.seed)
-    domains = list(SCENARIOS)
-    plans = []
-    for n in range(gen.count):
-        domain = domains[n % len(domains)]
-        plans.append(
-            (domain, rng.choice(SCENARIOS[domain]), rng.randint(gen.min_lines, gen.max_lines))
-        )
     calls: list[Call] = []
     try:
-        for n, (domain, scenario, count) in enumerate(plans[: args.limit]):
-            prompt = PROMPT.format(domain=domain, scenario=scenario, lines=count)
+        for n, (domain, scenario, count) in enumerate(plans):
+            prompt = prompts([(domain, scenario, count)])[0]
             for attempt in range(gen.max_attempts):
                 note = f"\n(Attempt {attempt + 1}.)" if attempt else ""
                 reply = llm.chat([{"role": "user", "content": prompt + note}])
@@ -117,6 +144,31 @@ def main() -> None:
         print(f"\nDaily quota used up ({err}). Rerun tomorrow to resume.", file=sys.stderr)
         sys.exit(1)
     print(file=sys.stderr)
+
+    return calls
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=REPO_ROOT / "configs/phase5/data.yaml")
+    parser.add_argument("--limit", type=int, help="write only the first N calls")
+    args = parser.parse_args()
+    cfg = load_config(args.config, DataGen)
+    gen = cfg.calls
+
+    rng = random.Random(cfg.seed)
+    domains = list(SCENARIOS)
+    plans = []
+    for n in range(gen.count):
+        domain = domains[n % len(domains)]
+        plans.append(
+            (domain, rng.choice(SCENARIOS[domain]), rng.randint(gen.min_lines, gen.max_lines))
+        )
+    plans = plans[: args.limit]
+    if cfg.provider == "claude":  # D-31c: replies written in a Claude session, read from files
+        calls = from_files(REPO_ROOT / cfg.cache_dir, plans, gen)
+    else:
+        calls = from_api(cfg, plans)
 
     CALLS.write_text("".join(c.model_dump_json() + "\n" for c in calls), encoding="utf-8")
     # Split planned ids, not successful ones, so a failed call never moves the others.

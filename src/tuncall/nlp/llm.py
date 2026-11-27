@@ -32,7 +32,8 @@ class QuotaExhausted(RuntimeError):
 
 
 def _daily(err: openai.RateLimitError) -> bool:
-    text = str(err).lower()
+    """A per-day quota; Gemini says so only in the body (``...PerDay...`` quota id)."""
+    text = f"{err} {err.body}".lower()
     return "per day" in text or "perday" in text or "daily" in text
 
 

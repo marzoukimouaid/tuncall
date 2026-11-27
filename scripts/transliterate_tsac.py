@@ -11,8 +11,10 @@ everything converted so far, and a spot-check sample to outputs/phase5/.
 """
 
 import argparse
+import json
 import random
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -31,6 +33,8 @@ from tuncall.nlp.data import (
     tsac_train_pool,
 )
 from tuncall.nlp.llm import LLM, QuotaExhausted, parse_json
+
+TSAC_SUBSET = REPO_ROOT / "configs/data/tsac-arabizi-ids.txt"
 
 PROMPT = """You convert Tunisian Darija social-media comments from Latin letters (Arabizi, \
 often mixed with French or English) to Arabic script.
@@ -59,6 +63,52 @@ def convert(llm: LLM, texts: list[str]) -> list[str] | None:
     return [" ".join(t.split()) for t in out]
 
 
+def from_files(folder: Path, todo: list[tuple[str, str]]) -> tuple[dict[str, str], bool]:
+    """Write the work list to ``folder/arabizi-todo.jsonl``; read ``arabizi-*.out.jsonl``.
+
+    A reply with empty text marks a comment with nothing to convert (emojis only). Complete
+    when every comment of ``todo`` has a reply.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "arabizi-todo.jsonl").write_text(
+        "".join(dumps({"id": i, "text": t}) + "\n" for i, t in todo), encoding="utf-8"
+    )
+    wanted, done, answered = dict(todo), {}, set()
+    for path in sorted(folder.glob("arabizi-*.out.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            if row["id"] in wanted:
+                answered.add(row["id"])
+                if text := " ".join(row["text"].split()):
+                    done[row["id"]] = text
+    return done, answered == set(wanted)
+
+
+def from_api(cfg: DataGen, todo: list[tuple[str, str]], full: bool) -> tuple[dict[str, str], bool]:
+    llm = LLM(cfg.provider, cfg.model, REPO_ROOT / cfg.cache_dir)
+    done: dict[str, str] = {}
+    size, complete = cfg.tsac.batch_size, False
+
+    def work(batch: list[tuple[str, str]]) -> list[str]:
+        out = convert(llm, [t for _, t in batch])
+        if out is None:  # D-32c: redo this batch one comment at a time
+            out = [(convert(llm, [t]) or [""])[0] for _, t in batch]
+        return out
+
+    batches = [todo[i : i + size] for i in range(0, len(todo), size)]
+    try:
+        # Requests are slow (Gemini thinks first), so a few run at once; order is kept.
+        with ThreadPoolExecutor(cfg.tsac.workers) as pool:
+            for batch, out in zip(batches, pool.map(work, batches), strict=True):
+                done |= {i: t for (i, _), t in zip(batch, out, strict=True) if t}
+                print(f"\r{len(done)}/{len(todo)} converted", end="", file=sys.stderr)
+        complete = full
+    except QuotaExhausted as err:
+        print(f"\nDaily quota used up ({err}). Rerun tomorrow to resume.", file=sys.stderr)
+    print(file=sys.stderr)
+    return done, complete
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=REPO_ROOT / "configs/phase5/data.yaml")
@@ -77,22 +127,14 @@ def main() -> None:
     todo = [(i, t) for i, t, _ in pool if i not in held and not is_arabic(t)]
     todo = todo[: args.limit]
 
-    llm = LLM(cfg.provider, cfg.model, REPO_ROOT / cfg.cache_dir)
-    done: dict[str, str] = {}
-    size = cfg.tsac.batch_size
-    complete = False
-    try:
-        for start in range(0, len(todo), size):
-            batch = todo[start : start + size]
-            out = convert(llm, [t for _, t in batch])
-            if out is None:  # D-32c: redo this batch one comment at a time
-                out = [(convert(llm, [t]) or [""])[0] for _, t in batch]
-            done |= {i: t for (i, _), t in zip(batch, out, strict=True) if t}
-            print(f"\r{len(done)}/{len(todo)} converted", end="", file=sys.stderr)
-        complete = args.limit is None
-    except QuotaExhausted as err:
-        print(f"\nDaily quota used up ({err}). Rerun tomorrow to resume.", file=sys.stderr)
-    print(file=sys.stderr)
+    if cfg.provider == "claude":  # D-31c: replies written in a Claude session, read from files
+        if TSAC_SUBSET.exists():  # D-31c: only this owner-sized subset is converted
+            subset = read_ids(TSAC_SUBSET)
+            todo = [(i, t) for i, t in todo if i in subset]
+        done, complete = from_files(REPO_ROOT / cfg.cache_dir, todo)
+        complete = complete and args.limit is None
+    else:
+        done, complete = from_api(cfg, todo, args.limit is None)
 
     rows = sorted(done.items(), key=lambda kv: int(kv[0]))
     TSAC_ARABIZI.write_text(

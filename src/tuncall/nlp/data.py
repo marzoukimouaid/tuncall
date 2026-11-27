@@ -208,6 +208,7 @@ def dumps(obj: object) -> str:
 class TsacGen(StrictModel):
     validation_fraction: float
     batch_size: int
+    workers: int
 
 
 class CallsGen(StrictModel):

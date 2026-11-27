@@ -52,9 +52,10 @@ class FakeClient:
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=reply))])
 
 
-def rate_limit(message: str) -> openai.RateLimitError:
+def rate_limit(body: str) -> openai.RateLimitError:
     req = httpx.Request("POST", "https://x")
-    return openai.RateLimitError(message, response=httpx.Response(429, request=req), body=None)
+    resp = httpx.Response(429, request=req)
+    return openai.RateLimitError("Error code: 429", response=resp, body=[{"error": body}])
 
 
 def test_reply_is_cached_by_request(tmp_path: Path) -> None:
@@ -75,7 +76,8 @@ def test_rate_limit_is_waited_out_but_daily_quota_stops(tmp_path: Path) -> None:
     llm = LLM("gemini", "m", tmp_path, client=client, sleep=waits.append)
     assert llm.chat([{"role": "user", "content": "1"}]) == "ok"
     assert waits == [10.0]
-    llm = LLM("gemini", "m", tmp_path, client=FakeClient([rate_limit("quota per day")]))
+    daily = rate_limit("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+    llm = LLM("gemini", "m", tmp_path, client=FakeClient([daily]))
     with pytest.raises(QuotaExhausted):
         llm.chat([{"role": "user", "content": "2"}])
 
@@ -96,6 +98,7 @@ def test_call_needs_both_roles_and_arabic_lines() -> None:
     line = {"role": "agent", "text": "عسلامة  شنوة نجم نعاونك"}
     other = {"role": "customer", "text": "عندي مشكل"}
     assert valid({"lines": [line, other]}, 2, 4) is not None
+    assert valid({"lines": [line, {"role": "customer", "text": "29 555 666."}]}, 2, 4)
     assert valid({"lines": [line, line]}, 2, 4) is None
     assert valid({"lines": [line, {"role": "customer", "text": "hello there"}]}, 2, 4) is None
     assert valid({"lines": [line, {"role": "boss", "text": "عندي"}]}, 2, 4) is None
