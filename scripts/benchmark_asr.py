@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal
 
+from tuncall.asr import ModelRef
 from tuncall.config import StrictModel, load_config
 from tuncall.data.lexicon import load_lexicon, transliterate
 from tuncall.data.telephone import telephone
@@ -33,14 +34,6 @@ from tuncall.tracking import Tracker
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
-
-
-class ModelRef(StrictModel):
-    id: str
-    revision: str
-    # Local LoRA adapter dir, merged before decoding; its sha256 goes to MLflow.
-    # shortcut: cached predictions are not keyed by the hash; rerun with --force after retraining.
-    adapter: Path | None = None
 
 
 class EvalSet(StrictModel):

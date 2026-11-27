@@ -30,7 +30,7 @@ uv run pytest tests/test_import.py::test_package_imports   # a single test
 uv run pre-commit run --all-files
 ```
 
-CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. `tests/test_asr_train.py` is the CPU smoke test (tiny random Whisper: train, beam eval, checkpoint, resume; D-83b). `--limit N` on the benchmark, `prepare_asr_data.py` and `train_asr.py` is the local pre-flight. peft and accelerate live in the torch extras, because they require torch.
+CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. `tests/test_asr_train.py` is the CPU smoke test (tiny random Whisper: train, beam eval, checkpoint, resume; D-83b). `--limit N` on the benchmark, `prepare_asr_data.py` and `train_asr.py` is the local pre-flight. peft, accelerate and pyannote.audio live in the torch extras, because they require torch; on the laptop (CUDA torch) sync with `uv sync --extra gpu`.
 
 Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`) and blocks files over 500 KB.
 
@@ -57,6 +57,7 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `asr/cache.py` + `asr/train.py`: LoRA fine-tuning (D-21b). `scripts/prepare_asr_data.py` decodes the mix once into an int16 cache under `${HF_HOME}/tuncall-cache/` (targets: lexicon + harakat stripped, clips over 30 s dropped; D-21c); `scripts/train_asr.py --config configs/phase3/lora.yaml` trains with `Seq2SeqTrainer` (beam-5 dev, best + latest checkpoint, resumes on rerun). Dev = `configs/data/dev-linto.txt` (from `scripts/linto_dev_holdout.py`) + SLURP-TN/TEDxTN validation (D-17a).
 - `data/conversations.py`: simulated two-speaker conversations from TEDxTN (D-13b, D-13c). `scripts/build_conversations.py --set dev|test` writes `configs/data/conversations-<set>.{tsv,yaml}`; `load_conversations(manifest)` rebuilds the clean audio and reference turns and checks the hashes. Telephone version = `telephone(audio)`.
 - `record.py`: the Pydantic `CallRecord` (D-55), Phase 4 fields only: call info, segments (anonymous `S1`/`S2`, role `unknown`, no `words[]`) and meta.
+- `diarize.py` + `pipeline.py`: pyannote community-1 diarization (gated: `HF_TOKEN`, terms accepted once) then per-turn `asr.transcribe` (long-form over 30 s) → `CallRecord` (D-23, D-23a, D-23b). `scripts/run_pipeline.py <audio> --config configs/phase4/pipeline.yaml`; `pipeline.process(models, audio, ..., num_speakers=)` is the in-memory entry the benchmark uses.
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 

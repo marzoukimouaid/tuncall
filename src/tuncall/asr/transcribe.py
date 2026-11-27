@@ -8,6 +8,7 @@ import torch
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 SAMPLE_RATE = 16_000
+WINDOW = 30 * SAMPLE_RATE  # Whisper's input window
 
 
 def load(
@@ -43,19 +44,42 @@ def transcribe(
     num_beams: int,
     max_new_tokens: int,
 ) -> list[str]:
-    """Transcribe 16 kHz mono clips (≤ 30 s each), deterministically, in order."""
-    texts: list[str] = []
-    for i in range(0, len(audios), batch_size):
+    """Transcribe 16 kHz mono clips, deterministically, in order.
+
+    Clips up to 30 s are batched (padded to 30 s, so the batch never changes a text).
+    Each longer clip is decoded alone with Transformers' long-form (sequential) decoding
+    (D-23a), so no clip's text depends on what it was batched with.
+    """
+    kwargs = {
+        "language": language,
+        "task": task,
+        "num_beams": num_beams,
+        "do_sample": False,
+        "max_new_tokens": max_new_tokens,
+    }
+    short = [i for i, a in enumerate(audios) if len(a) <= WINDOW]
+    texts: dict[int, str] = {}
+    for b in range(0, len(short), batch_size):
+        idx = short[b : b + batch_size]
         features = processor.feature_extractor(  # pyright: ignore[reportAttributeAccessIssue]
-            list(audios[i : i + batch_size]), sampling_rate=SAMPLE_RATE, return_tensors="pt"
+            [audios[i] for i in idx], sampling_rate=SAMPLE_RATE, return_tensors="pt"
         ).input_features.to(model.device, model.dtype)
-        ids = model.generate(
-            features,
-            language=language,
-            task=task,
-            num_beams=num_beams,
-            do_sample=False,
-            max_new_tokens=max_new_tokens,
+        ids = model.generate(features, **kwargs)
+        texts |= dict(zip(idx, processor.batch_decode(ids, skip_special_tokens=True), strict=True))  # pyright: ignore[reportAttributeAccessIssue]
+    for i in (i for i, a in enumerate(audios) if len(a) > WINDOW):
+        inputs = processor.feature_extractor(  # pyright: ignore[reportAttributeAccessIssue]
+            [audios[i]],
+            sampling_rate=SAMPLE_RATE,
+            return_tensors="pt",
+            truncation=False,
+            padding="longest",
+            return_attention_mask=True,
         )
-        texts += processor.batch_decode(ids, skip_special_tokens=True)  # pyright: ignore[reportAttributeAccessIssue]
-    return [t.strip() for t in texts]
+        ids = model.generate(
+            inputs.input_features.to(model.device, model.dtype),
+            attention_mask=inputs.attention_mask.to(model.device),
+            return_timestamps=True,
+            **kwargs,
+        )
+        texts[i] = processor.batch_decode(ids, skip_special_tokens=True)[0]  # pyright: ignore[reportAttributeAccessIssue]
+    return [texts[i].strip() for i in range(len(audios))]

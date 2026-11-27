@@ -1,0 +1,7 @@
+# Phase 4 batch pipeline: diarize, then transcribe each turn (D-23, D-23a, D-24).
+asr:  # our LoRA, best dev checkpoint (configs/phase3/benchmark.yaml)
+  id: openai/whisper-large-v3-turbo
+  revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+  adapter: checkpoints/phase3/lora-r32/best
+diarization_revision: 3533c8cf8e369892e6b79ff1bf80f7b0286a54ee  # community-1, 2026-11-26
+num_speakers: 2  # D-23 headline setting; null lets pyannote estimate the count
