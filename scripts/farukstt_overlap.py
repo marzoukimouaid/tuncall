@@ -14,6 +14,7 @@ import pyarrow.parquet as pq
 from huggingface_hub import HfApi, HfFileSystem
 
 from tuncall.config import load_config
+from tuncall.data.conversations import ConversationSet, load_conversations
 from tuncall.data.lexicon import load_lexicon, transliterate
 from tuncall.data.testsets import Manifest, fetch, iter_cuts, sha256_file
 from tuncall.eval.normalize import normalize_arabic
@@ -24,7 +25,7 @@ REPO = "FARUKxAUTO/tunisian-asr-cleaned"
 REVISION = "70621ea0b391c96f5422a754ccb975a640d35066"
 MIN_WORDS = 4
 ROOT = Path(__file__).resolve().parents[1]
-TEST_SETS = ("test-general", "test-domain")
+TEST_SETS = ("test-general", "test-domain", "conversations-test")  # last: Phase 4 (D-13b)
 LEXICON = ROOT / "configs" / "data" / "lexicon.tsv"
 README = ROOT / "README.md"
 
@@ -53,7 +54,18 @@ def train_transcripts(lexicon: dict[str, str]) -> set[str]:
     return out
 
 
+def conversation_refs(name: str, lexicon: dict[str, str]) -> dict[str, str]:
+    """One reference per TEDxTN clip placed in the simulated conversations (already
+    transliterated by ``load_conversations``)."""
+    del lexicon
+    manifest = load_config(ROOT / "configs" / "data" / f"{name}.yaml", ConversationSet)
+    convs = load_conversations(manifest)
+    return {f"{c.id}/{i}": clip.text for c in convs for i, clip in enumerate(c.clips)}
+
+
 def test_set_refs(name: str, lexicon: dict[str, str]) -> dict[str, str]:
+    if name.startswith("conversations-"):
+        return conversation_refs(name, lexicon)
     manifest = load_config(ROOT / "configs" / "data" / f"{name}.yaml", Manifest)
     files = fetch(manifest)
     for f in manifest.files:

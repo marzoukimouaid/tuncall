@@ -1,0 +1,29 @@
+# Phase 4 pipeline benchmark on the simulated conversations (D-70b, D-13b, D-13c).
+# Same decoding as the ASR benchmark (D-26, D-15c); the ASR models of configs/phase3/benchmark.yaml.
+sets:
+  dev: configs/data/conversations-dev.yaml  # tuning only
+  test: configs/data/conversations-test.yaml  # frozen: run once
+readme_set: test
+readme_block: phase4
+diarization_revision: 3533c8cf8e369892e6b79ff1bf80f7b0286a54ee  # same as pipeline.yaml
+lexicon: configs/data/lexicon.tsv
+experiment: phase4-pipeline
+oracle_model: turbo-lora-r32
+batch_size: 4
+batch_size_by_model:
+  farukstt: 1  # large-v3 with 5 beams x 4 does not fit in 8 GB; batch size changes speed, not text
+language: ar
+task: transcribe
+num_beams: 5
+max_new_tokens: 440
+models:
+  turbo-lora-r32:
+    id: openai/whisper-large-v3-turbo
+    revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+    adapter: checkpoints/phase3/lora-r32/best
+  whisper-large-v3-turbo:
+    id: openai/whisper-large-v3-turbo
+    revision: 41f01f3fe87f28c78e2fbf8b568835947dd65ed9
+  farukstt:
+    id: medyas/FarukSTT
+    revision: a0898fa42804fc1ad86bbee147479d3e8a5f2270

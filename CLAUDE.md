@@ -58,6 +58,7 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `data/conversations.py`: simulated two-speaker conversations from TEDxTN (D-13b, D-13c). `scripts/build_conversations.py --set dev|test` writes `configs/data/conversations-<set>.{tsv,yaml}`; `load_conversations(manifest)` rebuilds the clean audio and reference turns and checks the hashes. Telephone version = `telephone(audio)`.
 - `record.py`: the Pydantic `CallRecord` (D-55), Phase 4 fields only: call info, segments (anonymous `S1`/`S2`, role `unknown`, no `words[]`) and meta.
 - `diarize.py` + `pipeline.py`: pyannote community-1 diarization (gated: `HF_TOKEN`, terms accepted once) then per-turn `asr.transcribe` (long-form over 30 s) → `CallRecord` (D-23, D-23a, D-23b). `scripts/run_pipeline.py <audio> --config configs/phase4/pipeline.yaml`; `pipeline.process(models, audio, ..., num_speakers=)` is the in-memory entry the benchmark uses.
+- `scripts/benchmark_pipeline.py --set dev|test` (`configs/phase4/benchmark.yaml`): DER / cpWER / WER / CER on the simulated conversations for every ASR model on the same pyannote turns, plus an oracle row (D-70b, D-70c). Tune on dev only; the test run writes the README `phase4` block. `--limit N` is the pre-flight.
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 
