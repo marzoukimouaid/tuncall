@@ -1,0 +1,10 @@
+# Phase 6 serving (D-87b). DATABASE_URL and HF_TOKEN come from the environment (.env).
+pipeline_config: configs/phase5/pipeline.yaml  # the shipped Phase 5 pipeline
+storage_dir: data/uploads  # Compose mounts the audio volume here (D-50d)
+max_upload_mb: 400
+max_duration_s: 1800  # D-50c: 30 minutes per call
+default_num_speakers: 2  # D-50b
+poll_interval_s: 2.0
+lease_s: 900  # D-55d: ~3x the expected time for a 30-minute call; revisit after the benchmark
+max_attempts: 2  # D-55d
+web_dir: web/dist
