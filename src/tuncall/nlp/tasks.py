@@ -12,7 +12,8 @@ import yaml
 
 from tuncall.config import StrictModel
 from tuncall.data.testsets import REPO_ROOT
-from tuncall.nlp.data import CallSet, slurp_tn, synthetic_calls, tsac
+from tuncall.nlp.data import CallSet, call_turns, slurp_tn, synthetic_calls, tsac
+from tuncall.nlp.metrics import Score, classification, entity_f1
 
 TASKS = ("intent", "entities", "sentiment", "role")
 
@@ -62,3 +63,23 @@ def label_set(task: str, train: list[Example]) -> list[str]:
     if task == "role":
         return sorted({ln.role for ex in train for ln in ex.call.lines})
     return sorted({ex.gold for ex in train})
+
+
+def role_gold(val: list[Example], seed: int | None) -> dict[tuple[str, str], str]:
+    return {(ex.call.id, s): r for ex in val for s, r in call_turns(ex.call, seed)[1].items()}
+
+
+def scores(task: str, val: list[Example], preds: list[Any]) -> dict[str, Score]:
+    """Scores on any split; role ``preds`` is one (gold, pred) pair of {(call, speaker): role}
+    dicts per input order (plain, then shuffled)."""
+    if task == "entities":
+        return {"f1": entity_f1([ex.gold for ex in val], preds)}
+    if task == "role":
+        out = {}
+        for name, (gold, pred) in zip(("accuracy", "accuracy_shuffled"), preds, strict=True):
+            keys = sorted(gold)
+            out[name] = classification([gold[k] for k in keys], [pred.get(k) for k in keys])[
+                "accuracy"
+            ]
+        return out
+    return classification([ex.gold for ex in val], preds)
