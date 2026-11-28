@@ -8,6 +8,8 @@ import json
 import logging
 from pathlib import Path
 
+from pydantic import Field
+
 from tuncall.config import StrictModel
 
 
@@ -23,6 +25,9 @@ class ServeConfig(StrictModel):
     lease_s: float = 900  # D-55d: about 3x the expected time for a 30-minute call
     max_attempts: int = 2  # D-55d
     web_dir: Path = Path("web/dist")  # the built dashboard, served at / when present
+    # Host headers the API answers (blocks DNS rebinding from web pages); Phase 8 adds its
+    # public name together with auth (D-54a).
+    allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
 
 
 class JsonFormatter(logging.Formatter):
