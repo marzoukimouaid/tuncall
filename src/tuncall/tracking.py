@@ -57,7 +57,12 @@ def detect_machine() -> str:
 
 
 def git_commit() -> str:
-    """Current commit hash, suffixed with ``-dirty`` if there are uncommitted changes."""
+    """Current commit hash, suffixed with ``-dirty`` if there are uncommitted changes.
+
+    Docker images have no ``.git``: they get the commit from ``GIT_COMMIT`` at build time.
+    """
+    if commit := os.environ.get("GIT_COMMIT"):
+        return commit
     try:
         head = _git("rev-parse", "HEAD")
         dirty = _git("status", "--porcelain")

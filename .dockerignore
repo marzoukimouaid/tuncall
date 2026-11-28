@@ -1,0 +1,12 @@
+# Only code, configs and the dashboard sources go into the build context.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+!configs/
+!web/
+web/node_modules/
+web/dist/
+**/__pycache__/

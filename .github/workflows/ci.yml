@@ -59,5 +59,10 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
+      # D-83c: PRs build the API image without pushing. The CUDA worker image (several GB)
+      # is built only on main, by images.yml.
+      - name: API image build
+        run: docker build --target api .
+
       # TODO(Phase 3, D-83a): CPU smoke test (train + eval a few steps on a tiny
       # audio sample with a tiny model), per D-83 item 4.

@@ -1,0 +1,54 @@
+# Phase 6 local deployment (D-61a, D-82a): docker compose up
+# Needs an NVIDIA GPU with the NVIDIA Container Toolkit, the fine-tuned weights in
+# ./checkpoints (D-80f) and a .env with HF_TOKEN and HF_HOME (names in .env.example).
+# The API is published on 127.0.0.1 only: no auth until Phase 8 (D-54a).
+name: tuncall
+
+x-database-url: &database-url postgresql://tuncall:${POSTGRES_PASSWORD:-tuncall}@db:5432/tuncall
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tuncall
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tuncall}
+      POSTGRES_DB: tuncall
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "tuncall"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/marzoukimouaid/tuncall-api:${TAG:-latest}
+    build: {context: ., target: api, args: {GIT_COMMIT: "${GIT_COMMIT:-unknown}"}}
+    environment:
+      DATABASE_URL: *database-url
+    ports: ["127.0.0.1:${API_PORT:-8080}:8000"]
+    volumes: [audio:/app/data/uploads]
+    depends_on: {db: {condition: service_healthy}}
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/marzoukimouaid/tuncall-worker:${TAG:-latest}
+    build: {context: ., target: worker, args: {GIT_COMMIT: "${GIT_COMMIT:-unknown}"}}
+    environment:
+      DATABASE_URL: *database-url
+      HF_TOKEN: ${HF_TOKEN:?set HF_TOKEN in .env (pyannote is gated)}
+      HF_HOME: /hf
+    volumes:
+      - audio:/app/data/uploads
+      - ./checkpoints:/app/checkpoints:ro
+      - ${HF_HOME:?set HF_HOME in .env}:/hf
+    depends_on: {db: {condition: service_healthy}}
+    stop_grace_period: 15m  # SIGTERM lets the current call finish (one lease)
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  audio:
