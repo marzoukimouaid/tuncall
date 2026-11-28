@@ -1,0 +1,18 @@
+# Phase 5 data generation (D-31a, D-31c). Read by scripts/transliterate_tsac.py and
+# scripts/make_synthetic_calls.py. provider claude: the scripts write the work lists to
+# cache_dir and read the replies written in a Claude session from there (D-31c);
+# provider gemini or groq: they call the API and cache every reply in cache_dir.
+provider: claude
+model: claude-sonnet-5-5  # every reply was written by Sonnet helpers (D-31c)
+cache_dir: outputs/phase5/claude
+seed: 0
+tsac:
+  validation_fraction: 0.1  # of each sentiment in TSAC train, after dropping test copies
+  batch_size: 25  # Arabizi comments per request (D-32c)
+  workers: 4  # requests in flight at once
+calls:
+  count: 200
+  min_lines: 6
+  max_lines: 20
+  max_attempts: 3  # requests per call before giving up on it
+  splits: {train: 100, validation: 30, test: 70}
