@@ -32,3 +32,5 @@ trainer:
   activation_checkpointing_kwargs: {use_reentrant: false}
   logging_steps: 10
   seed: 0
+task_trainer:  # role calls run to 1,536 tokens: batch 2 ran out of 8 GB in backward
+  role: {per_device_train_batch_size: 1, gradient_accumulation_steps: 16}  # still 16

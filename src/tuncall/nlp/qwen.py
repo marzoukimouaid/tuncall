@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from pydantic import Field
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 
 from tuncall.asr.train import IntervalsFromConfig, LoraSettings, ModelRef, TrackerCallback
@@ -55,6 +56,7 @@ class QwenConfig(StrictModel):
     output_root: Path  # adapters go to output_root/<task>
     eval_batch_size: int
     trainer: dict[str, Any]  # TrainingArguments keyword arguments
+    task_trainer: dict[str, dict[str, Any]] = Field(default_factory=dict)  # per-task overrides
 
 
 def chat(
@@ -165,7 +167,10 @@ def train_qwen(
             messages, answer, _ = chat(task, labels, ex, seed)
             rows.append({"messages": messages, "answer": answer})
     args = TrainingArguments(
-        output_dir=str(out), report_to="none", remove_unused_columns=False, **cfg.trainer
+        output_dir=str(out),
+        report_to="none",
+        remove_unused_columns=False,
+        **(cfg.trainer | cfg.task_trainer.get(task, {})),
     )
     trainer = Trainer(
         model=model,
