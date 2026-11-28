@@ -48,5 +48,16 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      # D-83c: the dashboard type-checks and builds inside the required job.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Dashboard type-check and build
+        working-directory: web
+        run: npm ci && npm run build
+
       # TODO(Phase 3, D-83a): CPU smoke test (train + eval a few steps on a tiny
       # audio sample with a tiny model), per D-83 item 4.
