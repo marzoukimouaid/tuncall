@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from tuncall.tracking import MAX_ARTIFACT_BYTES, Tracker, flatten
+from tuncall.tracking import MAX_ARTIFACT_BYTES, Tracker, flatten, git_commit
 
 
 class FakeClient:
@@ -144,3 +144,9 @@ def test_bad_tracking_uri_never_raises(tmp_path: Path, monkeypatch: pytest.Monke
         tracker.log_metrics({"loss": 0.5}, step=1)
 
     assert "loss" in (tmp_path / "buffer.jsonl").read_text(encoding="utf-8")
+
+
+def test_git_commit_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Docker images have no .git; the build passes the commit in (Phase 6, D-82a).
+    monkeypatch.setenv("GIT_COMMIT", "abc123")
+    assert git_commit() == "abc123"

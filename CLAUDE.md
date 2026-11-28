@@ -28,9 +28,13 @@ uv run pyright
 uv run pytest                             # all tests
 uv run pytest tests/test_import.py::test_package_imports   # a single test
 uv run pre-commit run --all-files
+uv sync --extra cpu --extra serve         # + FastAPI/psycopg for the Phase 6 serving code
+TEST_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55432/postgres uv run pytest tests/test_serve_*.py
+cd web && npm ci && npm run build         # dashboard type-check + build (dist/ is served by the API)
+docker compose up                         # db + api + worker (needs NVIDIA Container Toolkit, .env)
 ```
 
-CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu`, `ruff check`, `ruff format --check`, `pyright` and `pytest`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. `tests/test_asr_train.py` is the CPU smoke test (tiny random Whisper: train, beam eval, checkpoint, resume; D-83b). `--limit N` on the benchmark, `prepare_asr_data.py` and `train_asr.py` is the local pre-flight. peft, accelerate and pyannote.audio live in the torch extras, because they require torch; on the laptop (CUDA torch) sync with `uv sync --extra gpu`.
+CI (`.github/workflows/ci.yml`, job name `checks`) runs `uv sync --locked --extra cpu --extra serve`, `ruff check`, `ruff format --check`, `pyright`, `pytest` (with a Postgres service for the serving tests; they skip locally without `TEST_DATABASE_URL`), the dashboard build and the API image build. `images.yml` pushes the api and worker images to GHCR on `main`. A stale `uv.lock` fails CI, so commit lockfile changes. A plain `uv sync` without an extra removes torch; `uv run` leaves it alone. `tests/test_asr_train.py` is the CPU smoke test (tiny random Whisper: train, beam eval, checkpoint, resume; D-83b). `--limit N` on the benchmark, `prepare_asr_data.py` and `train_asr.py` is the local pre-flight. peft, accelerate and pyannote.audio live in the torch extras, because they require torch; on the laptop (CUDA torch) sync with `uv sync --extra gpu`.
 
 Pre-commit runs Ruff and pyright through `uv run` (versions come from `uv.lock`) and blocks files over 500 KB.
 
@@ -63,6 +67,8 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `nlp/tasks.py` + `nlp/encoder.py` + `nlp/qwen.py`: Phase 5 training (D-32f). `scripts/train_nlp.py --config configs/phase5/encoder.yaml|qwen.yaml [--task T] [--model M] [--limit N]` fine-tunes one model per task, writes validation scores to `outputs/phase5/validation/<model>-<task>.json` (an existing JSON is skipped), and keeps only the better encoder per task. Encoder checkpoints are model-only (`save_only_model`, disk), so a stopped encoder task restarts; Qwen resumes and reuses `final/`. Ask the owner before downloads and long runs (disk is tight).
 - `nlp/predict.py`: `load_predictors(models, qwen_config, device)` gives a predictor per task (encoder dir, or Qwen 4-bit base + adapters switched per task); used by `pipeline.annotate` (fills the Phase 5 fields when the config has `nlp:`; `configs/phase5/pipeline.yaml` is the `run_pipeline.py` default) and by `scripts/benchmark_nlp.py --set dev|test` (`configs/phase5/benchmark.yaml`, D-55b): scores with CIs, gold text and ASR transcripts, ms per input; dev prints the D-55a shipping choice, test writes the README `phase5` block. `--contender` runs one side and merges into `outputs/phase5/benchmark-<set>.json`.
 - `scripts/benchmark_pipeline.py --set dev|test` (`configs/phase4/benchmark.yaml`): DER / cpWER / WER / CER on the simulated conversations for every ASR model on the same pyannote turns, plus an oracle row (D-70b, D-70c). Tune on dev only; the test run writes the README `phase4` block. `--limit N` is the pre-flight.
+
+- `serve/` (Phase 6, ADR 0010): `db.py` is the `calls` table, which is also the job queue (claim with `SKIP LOCKED`, lease + 2 attempts, the attempt number fences a stale worker; numbered `migrations/*.sql` applied at startup). `worker.py` (`python -m tuncall.serve.worker`) decodes with ffmpeg and runs `pipeline.process`, one call at a time. `app.py` (`uvicorn --factory tuncall.serve.app:app_from_env`) is the FastAPI API and serves `web/dist`; it must never import torch (tested). Config `configs/phase6/serve.yaml` (`ServeConfig`); `DATABASE_URL` from the env. `web/` is the React dashboard; `Dockerfile` (targets `api`, `worker`) + `compose.yaml` (API on 127.0.0.1 only).
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 
