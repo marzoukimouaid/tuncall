@@ -16,8 +16,8 @@ Step 2 is now the JSON output parsers, the metrics with CIs and the role inputs.
 ## Status and handoff (2026-11-27, end of session)
 
 Branches, stacked: `docs/phase5-plan` (PR #61) → `feat/phase5-data` (PR #62, closes #57) →
-`feat/phase5-metrics` (PR #63, closes #58) → `feat/phase5-training` (local, **not pushed**, no
-PR yet; will close #59).
+`feat/phase5-metrics` (PR #63, closes #58) → `feat/phase5-training` (local, not pushed; will
+close #59) → `feat/phase5-pipeline` (local, not pushed; will close #60).
 
 - **Step 1 (data):** done and frozen (D-31b, D-31c).
 - **Step 2:** done. No prompted-LLM row (D-32e); step 2 became the JSON parsers, the
@@ -39,27 +39,23 @@ PR yet; will close #59).
       catches exact matches only.
     - Role 1.00 means the synthetic calls make roles easy.
     - Only 54 of 2,471 train entity values (2%) are not found as words in their sentence.
-- **Step 3, Qwen3 4B LoRA:** code written and smoke-tested on CPU, never run on the GPU.
-  - The owner stopped the base-model download because it saturated the home internet:
-    ~1.7 GB of ~8.05 GB is in `$HF_HOME/hub/models--Qwen--Qwen3-4B-Instruct-2507`.
-  - Hugging Face resumes the `.incomplete` files, so nothing is lost.
-  - To resume, at a time the connection can be saturated (the owner's choice), either:
-    - pre-download only:
-      `uv run hf download Qwen/Qwen3-4B-Instruct-2507 --revision cdbee75f17c01a7cc42f958dc650907174af0554`
-    - or run the pre-flight directly:
-      `uv run python scripts/train_nlp.py --config configs/phase5/qwen.yaml --limit 20`
-  - Then delete `checkpoints/phase5/qwen/limit-20` and `outputs/phase5/validation/*-limit-20.json`,
-    and run the full training without `--limit` (estimated 1.5–2 h on the RTX 4070).
-- **Step 4 (#60):** code done (D-55b), commit `26b86b8` on `feat/phase5-pipeline` (stacked on
-  `feat/phase5-training`, not pushed):
-  - `nlp/predict.py`, `scripts/benchmark_nlp.py`, the `CallRecord` NLP fields,
-    `pipeline.annotate`, and `configs/phase5/{benchmark,pipeline}.yaml`.
-  - Encoder dev benchmark: the scores match training validation, at 0.2–2.2 ms per input.
-  - `run_pipeline.py` was checked end to end on one simulated conversation (NLP stage 117 ms).
-  - Overnight run (2026-11-27, owner asleep, D-55b): download → pre-flight → full Qwen
-    training → Qwen dev benchmark. Logs are in `outputs/phase5/logs/`.
-  - Left: the shipping choice per task in `configs/phase5/pipeline.yaml`, the one-time test
-    run (README `phase5` block), the model card section, the §2 NLP targets and §5 status.
+- **Step 3, Qwen3 4B LoRA:** done 2026-11-28 overnight (~3.5 h on the RTX 4070). It used
+  batch 2 × 8 accumulation, and role batch 1 × 16 (`task_trainer`), because batch 4 ran out
+  of memory. The download had to fall back to plain HTTP (`HF_HUB_DISABLE_XET=1`) after a
+  Xet CDN error. Validation: intent macro-F1 0.612, entities 0.685, sentiment 0.963, role
+  1.00 / 1.00. Adapters: `checkpoints/phase5/qwen/<task>/final`.
+- **Step 4 (#60):** done (D-55b, P-15).
+  - Dev choice (D-55a): Qwen for intent and entities, the encoders for sentiment and role
+    (`configs/phase5/pipeline.yaml`).
+  - One test run (2026-11-28) wrote the README `phase5` block. §2 NLP targets are set and
+    met, and §5 marks Phase 5 done.
+  - The model card has an NLP section. `run_pipeline.py` was checked end to end with Qwen
+    loaded (fits 8 GB; the NLP stage takes 4.8 s on a 2-minute call).
+- **Left for the owner:**
+  - Push the branches and open the PRs. Commits are on `feat/phase5-training` (#59) and on
+    `feat/phase5-pipeline` (#60), which is stacked on top of it.
+  - Review the overnight choices in D-55b and P-15.
+  - Decide which rows go in public write-ups.
 
 Working rules learned this session (owner):
 - Before any download, state the destination, the size and the estimated time, and ask.

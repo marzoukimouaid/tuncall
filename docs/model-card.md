@@ -142,6 +142,37 @@ it in the README.
 - **Spelling convention.** Darija has no standard spelling. The output follows the training
   transcripts' conventions, which vary between sources.
 
+## Language models (Phase 5)
+
+After transcription, the pipeline labels each turn of a call with an **intent**, its
+**entities** and its **sentiment**, and guesses whether each speaker is the **agent** or the
+**customer**. Two kinds of models were fine-tuned per task and compared on validation data.
+The better one ships, or the faster one when they are within one point:
+
+| Task | Shipped model | Test score |
+|---|---|---|
+| Intent | Qwen3 4B Instruct, 4-bit, with a LoRA adapter | macro-F1 62.5% |
+| Entities | Qwen3 4B Instruct, 4-bit, with a LoRA adapter | F1 67.3% on correct text, 40.6% on our transcripts |
+| Sentiment | MARBERTv2, fine-tuned | macro-F1 97.4% |
+| Speaker role | MARBERTv2, fine-tuned | 100% on synthetic calls |
+
+The full comparison is in the README.
+
+**Limits to know before using these labels:**
+
+- **The intents are voice-assistant intents.** The only public Tunisian intent data,
+  SLURP-TN, covers commands like setting an alarm or sending an email, not support-call
+  reasons such as billing or a broken line. Swapping in call-centre labels later needs
+  retraining only, with no pipeline changes.
+- **Transcription errors hurt entities most.** Names and dates must be heard exactly, so
+  entity F1 drops by about 25 points on our own transcripts. Intent drops by under 2.
+- **Roles were tested on synthetic calls** written by an LLM, which make roles easy, so
+  100% says little about real calls. Each speaker is judged on its own, so a call can get
+  two customers.
+- **Sentiment is positive or negative only**, learned from social-media comments, and its
+  score may be inflated by near-duplicate comments in that dataset.
+- Long turns are cut: the encoders read the first 128 tokens of each turn.
+
 ## Licensing and release
 
 The adapter's license is **not decided**. Two training sources (SLURP-TN and TEDxTN) are
