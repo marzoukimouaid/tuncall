@@ -49,7 +49,7 @@ The project has three goals:
 | ASR | Looping utterances on test-general (D-15d) | **≤ 10 of 1013** (base Whisper large-v3-turbo: 61). **Met** by the first LoRA: 1 |
 | Diarization | DER and cpWER on the frozen **simulated conversations** test set (D-13b), clean and telephone, 2 speakers known | **Clean: DER ≤ 11%, cpWER ≤ 35%; telephone: DER ≤ 21%, cpWER ≤ 63%** (P-13: the first pipeline's test numbers rounded up, so later changes must not regress). **Met** (2026-11-27): pyannote community-1 + first LoRA, clean 10.7% [9.1, 12.5] / 34.8% [29.4, 41.4], telephone 20.3% [17.3, 23.7] / 62.5% [53.5, 74.3] |
 | NLP | Intent macro-F1 and entity (type, value) F1 on SLURP-TN test (gold text); sentiment macro-F1 on TSAC test (Arabic script); role accuracy on shuffled synthetic calls (D-70d) | **Intent ≥ 62%, entities ≥ 67%, sentiment ≥ 97%, role ≥ 99%** (P-15: the shipped models' test numbers rounded down, so later changes must not regress). **Met** (2026-11-28): Qwen3 4B LoRA intent 62.5% [58.4, 71.0] and entities 67.3% [64.2, 70.4]; MARBERTv2 sentiment 97.4% [96.6, 98.1] and role 100% |
-| System | End-to-end latency per minute of audio; cost per hour of audio | TBD in Phase 6 |
+| System | Processing seconds per minute of audio (by stage); throughput, queue wait and p95 time to result at 1, 4 and 16 simultaneous uploads; cost per hour of audio (D-70e) | TBD from the Phase 6 serving benchmark on the frozen test conversations (P-16) |
 | Reproducibility | Someone else can reproduce headline numbers from the repo | Yes |
 | Publication | Model card(s) + write-up | Scope TBD (P-04); training-source licenses reviewed before any release (P-04a) |
 
@@ -180,7 +180,7 @@ Every output records **which model version produced it**, so any result can be t
 | **3. ASR fine-tuning** | Domain-adapted ASR beating baselines | ~~Ablation table~~ (deferred, P-11); model card draft (`docs/model-card.md`, D-21f) | Done (2026-11-26, P-12; first LoRA beats FarukSTT on all three test sets, README "Fine-tuned ASR") | [M3](https://github.com/marzoukimouaid/tuncall/milestone/4) |
 | **4. Diarization + pipeline** | Audio → diarized transcript, end to end | Pipeline eval (DER + cpWER + WER/CER) on simulated conversations (D-13b, D-70b) | Done (2026-11-27, P-13; README "Diarized pipeline") | [M4](https://github.com/marzoukimouaid/tuncall/milestone/5) |
 | **5. NLP** | Intent / sentiment / NER / speaker roles (summaries moved to Phase 7, D-33a) | Encoder vs Qwen LoRA comparison table; chosen model per task shipped | Done (2026-11-28, P-15; README "Intent, entities, sentiment and roles") | [M5](https://github.com/marzoukimouaid/tuncall/milestone/6) |
-| **6. Serving & product** | API, job queue, storage, dashboard, demo | Deployed demo; load/latency numbers | Not started | [M6](https://github.com/marzoukimouaid/tuncall/milestone/7) |
+| **6. Serving & product** | API, job queue, storage, dashboard, demo | ~~Deployed demo; load/latency numbers~~ P-16: `docker compose up` runs the whole stack on an 8 GB GPU; images built by CI and pushed to GHCR; README "Serving" block from a script; §2 System targets set; demo video | In progress (plan: [ADR 0010](docs/adr/0010-phase6-serving.md)) | [M6](https://github.com/marzoukimouaid/tuncall/milestone/7) |
 | **7. Knowledge layer** | Search + RAG + analytics | RAG eval (retrieval + faithfulness) | Not started | [M7](https://github.com/marzoukimouaid/tuncall/milestone/8) |
 | **8. Hardening & publish** | CI gates, monitoring, write-up, releases | Public release (scope per P-04) | Not started | [M8](https://github.com/marzoukimouaid/tuncall/milestone/9) |
 | **9. Stretch** | Real-time voice agent | Latency budget met | Not started | [M9](https://github.com/marzoukimouaid/tuncall/milestone/10) |
@@ -354,18 +354,18 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 ### Serving & backend
 | ID | Question | Notes |
 |---|---|---|
-| D-50 | API framework? | FastAPI / NestJS (you know both) / other |
-| D-51 | Async job processing? | Celery / RQ / Arq / Temporal + Redis/RabbitMQ |
-| D-52 | Model serving? | Plain FastAPI workers / Triton / Ray Serve / BentoML / vLLM (for LLMs) |
-| D-53 | Primary database? | PostgreSQL / other |
-| D-54 | Auth & multi-tenancy in scope? | |
+| D-50 | API framework? | FastAPI / NestJS (you know both) / other; ✅ decided 2026-11-28 → §9 |
+| D-51 | Async job processing? | Celery / RQ / Arq / Temporal + Redis/RabbitMQ; ✅ decided 2026-11-28 → §9 |
+| D-52 | Model serving? | Plain FastAPI workers / Triton / Ray Serve / BentoML / vLLM (for LLMs); ✅ decided 2026-11-28 → §9 |
+| D-53 | Primary database? | PostgreSQL / other; ✅ decided 2026-11-28 → §9 |
+| D-54 | Auth & multi-tenancy in scope? | ✅ decided 2026-11-28 → §9 |
 | D-55 | Schema format for CallRecord? | Pydantic / JSON Schema / Protobuf; ✅ decided 2026-11-26 → §9 |
 
 ### Interfaces
 | ID | Question | Notes |
 |---|---|---|
-| D-60 | Dashboard stack? | React (you know it) / Next.js / Streamlit / Gradio |
-| D-61 | Public demo hosting? | HF Spaces / own VPS / none |
+| D-60 | Dashboard stack? | React (you know it) / Next.js / Streamlit / Gradio; ✅ decided 2026-11-28 → §9 |
+| D-61 | Public demo hosting? | HF Spaces / own VPS / none; ✅ decided 2026-11-28 → §9 |
 
 ### Evaluation
 | ID | Question | Notes |
@@ -380,13 +380,13 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 |---|---|---|
 | D-80 | Experiment tracking? | W&B / MLflow / none; ✅ decided → §9 |
 | D-81 | Data & model versioning? | ✅ decided 2026-11-21 → §9 |
-| D-82 | Containerization? | Docker + compose / k8s (kind/k3s) / none |
+| D-82 | Containerization? | Docker + compose / k8s (kind/k3s) / none; ✅ decided 2026-11-28 → §9 |
 | D-83 | CI/CD platform? | GitHub Actions / GitLab CI / none; ✅ decided → §9 |
 | D-87 | Config system for training? | Plain YAML / Hydra / other; ✅ decided → §9 |
 | D-88 | Data versioning beyond HF Hub revisions? | ✅ decided 2026-11-21 → §9 (with D-81) |
 | D-84 | Code quality tooling? | ruff, mypy/pyright, pre-commit, pytest coverage targets; ✅ decided → §9 |
-| D-85 | Observability? | Prometheus + Grafana, OpenTelemetry, Langfuse (LLM traces) |
-| D-86 | Deployment target? | VPS (Hetzner etc.) / cloud (AWS/GCP) / HF / local only |
+| D-85 | Observability? | Prometheus + Grafana, OpenTelemetry, Langfuse (LLM traces); ✅ decided 2026-11-28 → §9 |
+| D-86 | Deployment target? | VPS (Hetzner etc.) / cloud (AWS/GCP) / HF / local only; ✅ decided 2026-11-28 → §9 |
 
 ### Stretch — voice agent
 | ID | Question | Notes |
@@ -410,7 +410,7 @@ Grouped by area. Each one becomes a Decision Log entry once answered. **Only row
 
 Format: `ID | Date | Decision | Reason | Alternatives rejected`
 
-ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md) · [0006 D-08v2 Phase 2 data strategy](docs/adr/0006-phase2-data-strategy.md) · [0007 D-21b LoRA fine-tuning](docs/adr/0007-lora-fine-tuning.md) · [0008 Phase 4 simulated conversations and diarize-first pipeline](docs/adr/0008-phase4-simulated-conversations.md) · [0009 Phase 5 NLP plan](docs/adr/0009-phase5-nlp.md)
+ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcription-convention.md) · [0002 D-80v2 tracking on DagsHub](docs/adr/0002-experiment-tracking-dagshub.md) · [0003 B-01c compute policy](docs/adr/0003-compute-policy.md) · [0004 D-21a ASR base model](docs/adr/0004-asr-base-model.md) · [0005 Phase 1 benchmark protocol](docs/adr/0005-phase1-benchmark-protocol.md) · [0006 D-08v2 Phase 2 data strategy](docs/adr/0006-phase2-data-strategy.md) · [0007 D-21b LoRA fine-tuning](docs/adr/0007-lora-fine-tuning.md) · [0008 Phase 4 simulated conversations and diarize-first pipeline](docs/adr/0008-phase4-simulated-conversations.md) · [0009 Phase 5 NLP plan](docs/adr/0009-phase5-nlp.md) · [0010 Phase 6 serving](docs/adr/0010-phase6-serving.md)
 
 | ID | Date | Decision | Reason | Alternatives rejected |
 |---|---|---|---|---|
@@ -572,6 +572,30 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 | D-32e | 2026-11-27 | **The prompted-LLM rival row is dropped (amends D-32a, D-32b, D-32d, D-70d):** Phase 5 compares the two local contenders only (best encoder vs Qwen3 4B LoRA). Step 2 (#58) shrinks to what they need: the JSON output parsers, the Phase 5 metrics with bootstrap CIs, and the plain/shuffled role inputs. The cached `openai` client stays for data generation only | Groq's free tier for `openai/gpt-oss-120b` allows 200,000 tokens per day and does not cache the fixed prompt (checked 2026-11-27): ~1.6M tokens for validation and ~4.5M for test meant about a month of daily runs; the row never ships (D-55a) | Paid Groq tier (~$1–2); free tier on a validation subsample; free tier in full (~1 month) |
 | D-32f | 2026-11-27 | **Phase 5 training settings (implements D-32a, #59):** standard settings, no search, the same for every task. **Encoders** (MARBERTv2 `fe88db9`, CAMeLBERT-DA `231698e`; **TunBERT dropped**: its only Hub copy runs custom code and is already fine-tuned on TSAC, possibly on its test comments): lr 2e-5, batch 32, up to 10 epochs, the epoch with the best validation score kept (macro-F1; pair F1 for entities; role accuracy for roles), 128 tokens. Entities are BIO tags built by finding each gold value as words in the text. **Roles (encoder):** every line is labelled agent/customer, and a speaker gets the role its lines lean to (mean probability), so shuffling cannot change its score. **Qwen3 4B Instruct** (`Qwen/Qwen3-4B-Instruct-2507` `cdbee75`), 4-bit NF4 + LoRA r 16 / alpha 32 on all attention and MLP projections, lr 2e-4, effective batch 16, 3 epochs, the last kept; loss on the answer only; greedy decoding; each role training call is used twice, as written and line-shuffled (seed 0). `bitsandbytes` joins the torch extras (D-32b). Code: `nlp/{tasks,encoder,qwen}.py`, `scripts/train_nlp.py`, `configs/phase5/{encoder,qwen}.yaml` | Owner's choice: a fair, cheap comparison where both contenders get the same treatment; per-line roles give ~1,300 training examples instead of ~200 | A learning-rate search (~3x GPU time); one example per speaker for the encoder |
 | D-55b | 2026-11-27 | **Phase 5 benchmark and pipeline implementation (implements D-55a, D-70d, #60):** `nlp/predict.py` runs the trained models for both the benchmark and the pipeline (encoders in bf16 on the GPU; Qwen as one 4-bit base with the four adapters switched per task, each adapter saving the label list its prompt names). `CallRecord` segments gain `intent`, `entities[] {type, value}`, `sentiment` and a `role` (agent/customer/unknown) that holds the speaker's guess; `meta.nlp_model_versions` maps task to model id@revision+path. Each speaker's role is guessed on its own, so a call can get two customers (no one-agent constraint). The pipeline feeds the NLP models `target_text(text_raw)` (D-34a); a speaker the role model gives no role keeps `unknown`. `scripts/benchmark_nlp.py --set dev|test`: ms per input after a warm-up batch (role: per call); the ASR-transcript input is the Phase 1 test-domain output of our LoRA ASR, put through `target_text`. The D-55a shipping rule compares intent macro-F1, entity pair F1, sentiment macro-F1 and role accuracy **on shuffled lines** (the plain order is a free answer). `configs/phase5/pipeline.yaml` is the new default of `scripts/run_pipeline.py`. Role trains at batch 1 × 16 accumulation (`task_trainer`) and the other Qwen tasks at 2 × 8 (effective batch 16 throughout; batch 4 ran out of 8 GB). Known limit: like training, a turn is cut at 128 encoder tokens (1,536 for Qwen), so the end of a long real-call turn is not read | Unattended overnight run (owner asleep, asked for the recommended option when in doubt); every choice above is reversible | A one-agent-one-customer constraint per call; plain-order role accuracy for the shipping rule; fp32 encoder inference |
+| P-16 | 2026-11-28 | **Phase 6 exit criterion** (replaces "Deployed demo; load/latency numbers"): (1) `docker compose up` on a machine with an 8 GB NVIDIA GPU runs the whole stack (upload → queue → CallRecord in the dashboard); (2) API and dashboard images built by CI and pushed to GHCR; (3) README "Serving" block (latency per stage, load, cost per hour) from a script; (4) §2 System targets set from that run (P-05 rule); (5) demo video. Public live demo and HF weights → Phase 8 | Deploy locally now, but nothing may block a public deployment by the end of the phases (owner, Q2) | Public demo in Phase 6 |
+| D-61a / D-86a | 2026-11-28 | **Deployment = local Docker Compose** on the laptop, which is the reference machine for all numbers. Public live demo moved to Phase 8, after the license review (P-04a). The project must be ship-ready by the end of the phases: config via files and env vars, images from a registry, no weights in images, auth added later | No budget for a GPU host (B-01); licenses not yet reviewed | Free CPU HF Space with reduced pipeline; paid GPU (ZeroGPU / rented, breaks B-01) |
+| D-54a | 2026-11-28 | **No auth**, single user, one local instance (P-06). Compose publishes the API on **`127.0.0.1` only**; exposing it is a Phase 8 change together with auth | Local only, one user | Login in Phase 6 |
+| D-50a | 2026-11-28 | **API = FastAPI** | Reuses the `CallRecord` Pydantic model: one schema, one language | NestJS (schema in two languages) |
+| D-52a | 2026-11-28 | **One GPU worker process** loads all models once (`pipeline.load_models`), takes one call at a time and runs `pipeline.process`. The API process never imports torch | All shipped models fit together in 8 GB; one GPU, one call at a time | Triton / vLLM / BentoML model servers |
+| D-53a | 2026-11-28 | **PostgreSQL** | Concurrent API + worker, JSONB, and the queue (D-51a) in one service; needed later anyway (Phase 7) | SQLite |
+| D-51a | 2026-11-28 | **Postgres is the job queue**: `calls.status`, the worker claims with `SELECT … FOR UPDATE SKIP LOCKED` | One less service; the queue state is the call state | Redis + RQ / Arq / Celery |
+| D-22b | 2026-11-28 | **Serving keeps HF Transformers** (the engine the README numbers come from). A faster engine (faster-whisper, CTranslate2, merged LoRA) is a later experiment and must pass the benchmark before it ships | Served numbers must match the benchmarked model | Switching engines in Phase 6 |
+| D-55c | 2026-11-28 | **Call status model** (§11): a Call has `status` ∈ queued / processing / done / failed, an attempt count and at most one CallRecord. No "Job" concept; reprocessing a call with a new model is not in Phase 6 | Simplest model that covers upload → result | Separate Job entity |
+| D-55d | 2026-11-28 | **Crash recovery = lease**: a claim sets `claimed_at` and counts as an attempt; any worker may reclaim a `processing` call whose lease is older than a timeout (≈ 3× the expected time for a 30-minute call). After **2 attempts** → `failed` with the error message | Correct with any number of workers, unlike a reset at startup | Reset stuck rows at worker startup (only safe with one worker) |
+| D-50b | 2026-11-28 | **API shape, always async**: `POST /calls` (multipart file + optional `num_speakers`, default 2; pyannote's count estimate is unreliable on telephone, P-13) → `202 {call_id}`; `GET /calls`; `GET /calls/{id}` (status + CallRecord when done); `GET /calls/{id}/audio`; `DELETE /calls/{id}`; `GET /health`. The dashboard polls every few seconds | One path for short and long calls; polling is enough for one user | Sync endpoint; WebSockets |
+| D-50c | 2026-11-28 | **Audio input:** ffmpeg in the worker image, so M4A/AAC phone formats work as well as WAV/FLAC/OGG/MP3; **max 30 minutes** per call | Phones record M4A/AAC; soundfile cannot read them | soundfile formats only |
+| D-50d | 2026-11-28 | **Audio storage:** uploads go to a Docker volume, the path in the DB; kept until the call is deleted, no automatic expiry | Local, single user | Expiry / object storage |
+| D-80f | 2026-11-28 | **Fine-tuned weights** (~1.6 GB) are **mounted from the local `checkpoints/`** (paths in `configs/phase5/pipeline.yaml`). Published to the HF Hub in Phase 8 after the license review (overnight upload, N-01). Images never contain weights; base models download by pinned revision (pyannote needs `HF_TOKEN`) | ~5 h upload at 0.68 Mbps; licenses not yet reviewed (P-04a) | Private HF upload now |
+| D-82a | 2026-11-28 | **Containers:** Compose with `db` (Postgres), `api` (FastAPI, also serves the built dashboard), `worker` (CUDA image, GPU via NVIDIA Container Toolkit). Built locally for development; GitHub Actions builds and pushes to **GHCR** on `main`, so nothing large is uploaded from home. If the worker image does not fit the runner disk, its build becomes a manual workflow | Ship-ready images without uploading from home | Kubernetes; pushing images from home |
+| D-03b | 2026-11-28 | **One package, new `serve` extra** (fastapi, uvicorn, psycopg, python-multipart). API code imports only `record.py` + the DB module, never torch. API image: `--extra serve`; worker image: `--extra serve --extra gpu` | Keeps the single-package layout (D-03a) | uv workspace split |
+| D-53b | 2026-11-28 | **DB code:** psycopg 3 + plain SQL; CallRecord stored as **JSONB**, validated by the Pydantic model in and out; numbered `.sql` migrations applied at startup | One table; no ORM needed | SQLAlchemy + Alembic |
+| D-60a | 2026-11-28 | **Dashboard:** React + Vite + TypeScript + Tailwind in `web/`. Three screens: upload, call list with status, call view (transcript by speaker with timestamps, each speaker's role guess, each segment's intent / entities / sentiment, audio playback that jumps to a segment). Search and analytics are Phase 7. UI text in English; transcript shown **right-to-left** (D-10) | Owner knows React; a real product UI | Gradio / Streamlit |
+| D-85a | 2026-11-28 | **Observability in Phase 6:** the per-stage timings in `CallRecord.meta.processing_ms_by_stage`, structured (JSON) logs, and `GET /health`. Prometheus + Grafana → Phase 8 | Enough for one local user | Full metrics stack now |
+| D-87b | 2026-11-28 | **Serving config:** `configs/phase6/serve.yaml` (YAML + Pydantic, D-87) points at the pipeline config and sets limits, storage path and polling interval. Secrets and the database URL come from environment variables (`.env`; names in `.env.example`) | Same config system as training | — |
+| D-70e | 2026-11-28 | **Serving metrics** (§2 System row): latency = processing seconds per minute of audio, by stage (diarization, ASR, NLP); load = N simultaneous uploads with N = 1, 4, 16, giving throughput (calls/hour), queue wait and p95 time to result (one worker, so throughput is capped, reported honestly); cost per hour of audio = GPU-hours × hourly rental price of a comparable GPU (price, date and source in the config). Measured **end to end through the API**. Knobs tuned on the **dev** simulated conversations; README numbers from **one run on the frozen test** conversations, clean and telephone. Targets set from that run (P-05 rule) | Numbers a user would see; same dev/test discipline as P-13/P-15 | In-process timing only; electricity as cost |
+| D-83c | 2026-11-28 | **CI additions:** a Postgres service for the serving tests; the dashboard type-check + build; PRs build the API image without pushing (the CUDA worker image is built only on `main`); `images.yml` pushes both images to GHCR on `main`. Everything a PR needs stays in the required `checks` job, so branch protection doesn't change | — | — |
+| D-71a | 2026-11-28 | **Serving tests:** API tests against a real Postgres; worker tests with a stub `process` returning a fixed CallRecord (claim, lease reclaim, retry, failure, delete). One manual end-to-end run on the laptop with the real models before the PR | Real SQL semantics (SKIP LOCKED, leases) need a real Postgres | — |
+| P-17 | 2026-11-28 | **Demo video audio:** a simulated test conversation (TEDxTN clips stitched together). The owner records the video | No real calls (D-08v2) | Owner role-playing a call; TTS |
 
 **Effect of D-80v2:** no MinIO and no local MLflow/Postgres containers for tracking. Docker is still used for the serving stack in later phases. Infrastructure skills are shown there (API, Postgres, job queue, monitoring, CI/CD).
 
@@ -625,3 +649,8 @@ ADRs (`docs/adr/`): [0001 D-10 transcription convention](docs/adr/0001-transcrip
 - **Contender:** one of the approaches compared in Phase 5 (prompted LLM, fine-tuned encoder, small LLM with LoRA).
 - **Encoder:** a BERT-style model that reads text and outputs labels; it cannot write text.
 - **Macro-F1:** F1 computed per label and averaged, so rare labels count as much as common ones.
+- **Call status:** where a Call is in processing: *queued* (uploaded, waiting), *processing* (claimed by a worker), *done* (has its CallRecord), *failed* (2 attempts used; error kept).
+- **Attempt:** one worker's try at processing a Call. A crash or lease timeout ends it; a Call gets at most 2.
+- **Lease:** the time a worker may hold a claimed Call before another worker may reclaim it.
+- **Worker:** the GPU process that holds the models and processes Calls one at a time.
+- **Real-time factor:** processing time divided by audio duration (here: seconds per minute of audio).
