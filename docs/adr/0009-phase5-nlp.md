@@ -62,3 +62,10 @@ The owner has no budget for paid APIs and prefers low-hassle options.
   re-runnable against the same model.
 - Phase 7 inherits summaries, together with the LLM-as-judge question (D-72).
 - Plan for the implementing session: `docs/phase5-plan.md`.
+
+## Amendments
+
+- D-32c (2026-11-27): the pinned API models were retired; replaced by `openai/gpt-oss-120b` and `gemini-3.5-flash`.
+- D-31c (2026-11-27): Claude Sonnet wrote the synthetic calls and the Arabizi conversions instead of Gemini.
+- D-32d (2026-11-27): the Gemini ceiling row is dropped.
+- D-32e (2026-11-27): the Groq rival row is dropped too (200,000 tokens/day free limit); Phase 5 compares the two local contenders only.

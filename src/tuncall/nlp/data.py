@@ -201,6 +201,23 @@ def synthetic_calls(split: str, manifest: CallSet, lexicon: dict[str, str]) -> l
     return out
 
 
+def call_turns(
+    call: Call, shuffle_seed: int | None = None
+) -> tuple[list[tuple[str, str]], dict[str, str]]:
+    """(speaker, text) lines and the gold role per speaker (D-70d).
+
+    Speakers are named S1, S2 in order of first appearance in the given line order, so with
+    ``shuffle_seed`` (lines shuffled per call) "S1 is the agent" stops being a free answer.
+    """
+    lines = list(call.lines)
+    if shuffle_seed is not None:
+        random.Random(f"{shuffle_seed}:{call.id}").shuffle(lines)
+    names: dict[str, str] = {}
+    for ln in lines:
+        names.setdefault(ln.role, f"S{len(names) + 1}")
+    return [(names[ln.role], ln.text) for ln in lines], {s: r for r, s in names.items()}
+
+
 def dumps(obj: object) -> str:
     return json.dumps(obj, ensure_ascii=False)
 
