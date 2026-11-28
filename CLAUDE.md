@@ -55,6 +55,8 @@ Code is a single package `src/tuncall/`. Add a subpackage per component (`data/`
 - `data/telephone.py`: `telephone(audio)` is the deterministic D-25a landline channel (8 kHz, A-law); the benchmark applies it with `channel: telephone`.
 - `asr/transcribe.py`: `load(model_id, revision, device, dtype)` and batched `transcribe(...)` for Whisper models with HF Transformers (D-22a, D-26). Used by `scripts/benchmark_asr.py` (D-15a).
 - `asr/cache.py` + `asr/train.py`: LoRA fine-tuning (D-21b). `scripts/prepare_asr_data.py` decodes the mix once into an int16 cache under `${HF_HOME}/tuncall-cache/` (targets: lexicon + harakat stripped, clips over 30 s dropped; D-21c); `scripts/train_asr.py --config configs/phase3/lora.yaml` trains with `Seq2SeqTrainer` (beam-5 dev, best + latest checkpoint, resumes on rerun). Dev = `configs/data/dev-linto.txt` (from `scripts/linto_dev_holdout.py`) + SLURP-TN/TEDxTN validation (D-17a).
+- `data/conversations.py`: simulated two-speaker conversations from TEDxTN (D-13b, D-13c). `scripts/build_conversations.py --set dev|test` writes `configs/data/conversations-<set>.{tsv,yaml}`; `load_conversations(manifest)` rebuilds the clean audio and reference turns and checks the hashes. Telephone version = `telephone(audio)`.
+- `record.py`: the Pydantic `CallRecord` (D-55), Phase 4 fields only: call info, segments (anonymous `S1`/`S2`, role `unknown`, no `words[]`) and meta.
 
 Run configs go in `configs/`, entry-point scripts in `scripts/`.
 
