@@ -22,16 +22,24 @@ dependencies = [
 
 # B-05: torch comes only from one of two conflicting extras.
 # Laptop/CI: `uv sync --extra cpu`; Colab: `uv sync --locked --extra gpu`.
-# peft and accelerate require torch, so they live in the extras too (D-21b).
+# peft, accelerate and pyannote.audio require torch, so they live in the extras too (D-21b, D-23).
 [project.optional-dependencies]
-cpu = ["torch>=2.9", "peft>=0.22.0", "accelerate>=1.16.0"]
-gpu = ["torch>=2.9", "peft>=0.22.0", "accelerate>=1.16.0"]
+cpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0"]
+gpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0"]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
 
 [tool.uv.sources]
 torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "gpu" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "gpu" },
+]
+torchcodec = [
     { index = "pytorch-cpu", extra = "cpu" },
     { index = "pytorch-cu126", extra = "gpu" },
 ]
