@@ -1,0 +1,17 @@
+# Phase 6 serving benchmark (D-70e): end to end through the running API (docker compose up).
+sets:
+  dev: configs/data/conversations-dev.yaml  # tuning only
+  test: configs/data/conversations-test.yaml  # frozen: run once
+readme_set: test
+readme_block: phase6
+experiment: phase6-serving
+api_url: http://127.0.0.1:8080  # compose publishes the API here (API_PORT)
+num_speakers: 2  # D-50b default
+loads: [1, 4, 16]
+poll_interval_s: 1.0
+timeout_s: 7200
+price:  # looked up once (D-70e); cheapest in-stock on-demand offer listed
+  gpu: RTX 4070 12 GB (cloud rental; the reference laptop has the 8 GB mobile part)
+  usd_per_hour: 0.14
+  source: getdeploying.com/gpus/nvidia-rtx-4070 (lowest on-demand, Theta EdgeCloud)
+  date: 2026-11-28
