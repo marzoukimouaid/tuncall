@@ -25,8 +25,8 @@ dependencies = [
 # Laptop/CI: `uv sync --extra cpu`; Colab: `uv sync --locked --extra gpu`.
 # peft, accelerate and pyannote.audio require torch, so they live in the extras too (D-21b, D-23).
 [project.optional-dependencies]
-cpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0"]
-gpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0"]
+cpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0", "bitsandbytes>=0.48"]
+gpu = ["torch>=2.9", "torchaudio", "torchcodec", "peft>=0.22.0", "accelerate>=1.16.0", "pyannote.audio>=4.0", "bitsandbytes>=0.48"]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]

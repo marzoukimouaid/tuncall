@@ -1,0 +1,33 @@
+# Phase 5 encoder fine-tunes (D-32a, D-32f): one per model and task, best epoch kept on
+# validation. Read by scripts/train_nlp.py.
+experiment: phase5-nlp
+data:
+  lexicon: configs/data/lexicon.tsv
+  slurp_revision: a5c2ec062fa91b5a51b7c914859eb1e6525a6f5d  # same pin as train-mix.yaml
+  calls: configs/data/synthetic-calls.yaml
+models:  # pinned 2026-11-27
+  marbertv2:
+    id: UBC-NLP/MARBERTv2
+    revision: fe88db9db8ccdb0c4e1627495f405c44a5f89066
+  camelbert-da:
+    id: CAMeL-Lab/bert-base-arabic-camelbert-da
+    revision: 231698eab9ebf0ae7b518a64277b81b2fe829f2d
+max_length: 128  # tokens; SLURP-TN commands, TSAC comments and call lines are short
+output_root: checkpoints/phase5/encoder
+trainer:  # standard settings, no search (D-32f)
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  learning_rate: 2.0e-5
+  warmup_steps: 0.1  # a float under 1 is a ratio of all steps
+  weight_decay: 0.01
+  num_train_epochs: 10
+  eval_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 2  # best + latest
+  save_only_model: true  # ~650 MB each instead of ~1.9 GB; a stopped run restarts its task
+  load_best_model_at_end: true
+  metric_for_best_model: score  # macro-F1, pair F1 or role accuracy
+  greater_is_better: true
+  bf16: true
+  logging_steps: 25
+  seed: 0
