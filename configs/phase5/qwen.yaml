@@ -19,8 +19,8 @@ lora:  # standard settings, no search (D-32f)
 output_root: checkpoints/phase5/qwen
 eval_batch_size: 16
 trainer:
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 4  # effective batch 16
+  per_device_train_batch_size: 2  # 4 ran out of 8 GB on 1,536-token role calls (fp32 logits)
+  gradient_accumulation_steps: 8  # effective batch 16
   learning_rate: 2.0e-4
   warmup_steps: 0.03  # a float under 1 is a ratio of all steps
   lr_scheduler_type: cosine
