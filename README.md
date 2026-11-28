@@ -168,6 +168,14 @@ voice-assistant intents, not call-centre intents (D-55a).
 Reproduce: `uv run python scripts/benchmark_nlp.py --config configs/phase5/benchmark.yaml --set test`
 <!-- phase5:end -->
 
+## Serving
+
+Upload a call, get its CallRecord: a FastAPI API, a Postgres job queue, one GPU worker and a React dashboard, run with `docker compose up` (ADR 0010). Measured end to end through the API by `scripts/benchmark_serving.py`; do not edit by hand.
+
+<!-- phase6:start -->
+Not measured yet: the frozen test run comes at the end of Phase 6 (P-16).
+<!-- phase6:end -->
+
 ## Development
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12.
